@@ -586,10 +586,33 @@ let ghostModelCache = null;
 
 function loadGhostModel(callback) {
   if (ghostModelCache) {
-    callback(ghostModelCache.clone());
+    const model = ghostModelCache.clone();
+    
+    // Add red glow light emanating from ghost
+    const ghostLight = new THREE.PointLight(0xff0000, 1.8, 5);
+    ghostLight.position.set(0, 1.0, 0);
+    model.add(ghostLight);
+    
+    // Apply emissive material to make it more menacing
+    model.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        if (child.material) {
+          if (!child.material.emissive) {
+            child.material.emissive = new THREE.Color(0x330000);
+          }
+          child.material.emissiveIntensity = 0.4;
+        }
+      }
+    });
+    
+    callback(model);
     return;
   }
-
+  
+  // Fallback if not preloaded
+  console.warn('Ghost model not preloaded, loading now...');
   const loader = new THREE.GLTFLoader();
   loader.load(
     'hantu_kyunti.glb',
@@ -616,7 +639,7 @@ function loadGhostModel(callback) {
         }
       });
       
-      ghostModelCache = model;
+      ghostModelCache = gltf.scene;
       callback(model.clone());
     },
     undefined,
@@ -816,149 +839,20 @@ pauseQuitBtn.addEventListener('click', () => {
 });
 
 // ── Master objects ────────────────────────────────────────────
+// ── Master objects (3 GLB models for easy mode) ──────────────
 const MASTER_OBJECTS = [
-  { geo:'box',      size:[0.8, 0.8, 0.8],     pos:[-3.2, 0.40, -4.0], color:0x8b6914, label:'wooden crate' },
-  { geo:'box',      size:[0.6, 1.5, 0.6],     pos:[ 3.0, 0.75, -2.5], color:0x4a4a5e, label:'tall cabinet' },
-  { geo:'box',      size:[1.8, 0.3, 0.9],     pos:[ 0.0, 0.15, -5.5], color:0x5c3a28, label:'long shelf' },
-  { geo:'cylinder', size:[0.25, 0.25, 1.0, 10],pos:[-1.5, 0.50,-6.0], color:0x2d6e3a, label:'green canister' },
-  { geo:'box',      size:[1.0, 0.5, 1.0],     pos:[ 2.5, 0.25, -5.5], color:0x6b2222, label:'red crate' },
-  { geo:'sphere',   size:[0.4, 12, 12],        pos:[-3.5, 0.40, -1.5], color:0x888866, label:'grey orb' },
-  { geo:'box',      size:[0.5, 0.5, 0.5],     pos:[ 1.0, 0.25, -7.0], color:0x336655, label:'small cube' },
-  { geo:'cylinder', size:[0.15, 0.15, 1.8, 8], pos:[-2.0, 0.90,-3.0], color:0x553322, label:'brown rod' },
-  { geo:'box',      size:[0.7, 0.9, 0.4],     pos:[ 3.8, 0.45, -6.5], color:0x334477, label:'blue console' },
-  { geo:'sphere',   size:[0.3, 10, 10],        pos:[-4.0, 0.30, -5.0], color:0x994422, label:'orange ball' },
+  { model: 'torture_chair.glb', pos: [-3.2, 0.5, -4.0], scale: 0.9, label: 'torture chair' },
+  { model: 'ornate_ouija_board_and_planchette.glb', pos: [3.0, 0.5, -2.5], scale: 0.01, label: 'Ouija board' },
+  { model: 'old_bathroom_cabinet_with_weathered_wood_texture.glb', pos: [0.0, 0.5, -5.5], scale: 0.6, label: 'bathroom cabinet' },
 ];
 
 let ambientLight, pointLight;
 const doors = { red: null, blue: null };
+let modelCache = {}; // Cache loaded models
 
 // ═════════════════════════════════════════════════════════════
 // ROOM BUILDER
 // ═════════════════════════════════════════════════════════════
-// Spider web builder
-function addSpiderWebs() {
-  const webMat = new THREE.MeshBasicMaterial({
-    color: 0xcccccc,
-    transparent: true,
-    opacity: 0.15,
-    side: THREE.DoubleSide,
-  });
-
-  // Create spider web geometry
-  function createWebGeometry(size) {
-    const geometry = new THREE.BufferGeometry();
-    const vertices = [];
-    const center = [0, 0, 0];
-    const spokes = 8;
-    const rings = 4;
-
-    // Create radial spokes
-    for (let i = 0; i < spokes; i++) {
-      const angle = (i / spokes) * Math.PI * 2;
-      const x = Math.cos(angle) * size;
-      const y = Math.sin(angle) * size;
-      vertices.push(...center, x, y, 0);
-    }
-
-    // Create concentric rings
-    for (let r = 1; r <= rings; r++) {
-      const radius = (r / rings) * size;
-      for (let i = 0; i <= spokes; i++) {
-        const angle1 = (i / spokes) * Math.PI * 2;
-        const angle2 = ((i + 1) / spokes) * Math.PI * 2;
-        const x1 = Math.cos(angle1) * radius;
-        const y1 = Math.sin(angle1) * radius;
-        const x2 = Math.cos(angle2) * radius;
-        const y2 = Math.sin(angle2) * radius;
-        vertices.push(x1, y1, 0, x2, y2, 0);
-      }
-    }
-
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-    return geometry;
-  }
-
-  // Add webs to corners and walls
-  const webPositions = [
-    // Back wall corners
-    { pos: [-ROOM_W/2 + 0.3, ROOM_H - 0.3, -ROOM_D/2 + 0.15], rot: [0, 0, 0], size: 0.4 },
-    { pos: [ROOM_W/2 - 0.3, ROOM_H - 0.3, -ROOM_D/2 + 0.15], rot: [0, 0, 0], size: 0.35 },
-    // Side walls
-    { pos: [-ROOM_W/2 + 0.15, ROOM_H - 0.5, -2], rot: [0, Math.PI/2, 0], size: 0.3 },
-    { pos: [ROOM_W/2 - 0.15, ROOM_H - 0.4, 2], rot: [0, -Math.PI/2, 0], size: 0.35 },
-    // Ceiling corners
-    { pos: [-3, ROOM_H - 0.05, -4], rot: [Math.PI/2, 0, 0], size: 0.5 },
-    { pos: [3.5, ROOM_H - 0.05, -3], rot: [Math.PI/2, 0, 0.3], size: 0.4 },
-    { pos: [-2.5, ROOM_H - 0.05, 3], rot: [Math.PI/2, 0, -0.5], size: 0.45 },
-  ];
-
-  webPositions.forEach(({ pos, rot, size }) => {
-    const webGeo = createWebGeometry(size);
-    const web = new THREE.LineSegments(webGeo, webMat);
-    web.position.set(...pos);
-    web.rotation.set(...rot);
-    scene.add(web);
-  });
-}
-
-// Spider builder
-function addSpiders() {
-  const spiderMat = new THREE.MeshStandardMaterial({
-    color: 0x1a1a1a,
-    roughness: 0.9,
-    metalness: 0.1,
-  });
-
-  function createSpider() {
-    const spider = new THREE.Group();
-
-    // Body (two spheres)
-    const abdomen = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), spiderMat);
-    abdomen.scale.set(1, 0.8, 1.2);
-    spider.add(abdomen);
-
-    const thorax = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), spiderMat);
-    thorax.position.set(0, 0, 0.05);
-    spider.add(thorax);
-
-    // 8 legs
-    for (let i = 0; i < 8; i++) {
-      const side = i < 4 ? 1 : -1;
-      const legIndex = i % 4;
-      const angle = (legIndex / 3) * 0.6 - 0.3;
-      
-      const leg = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.003, 0.003, 0.08, 4),
-        spiderMat
-      );
-      leg.position.set(side * 0.02, -0.02, 0.02 + legIndex * 0.015);
-      leg.rotation.z = side * (Math.PI / 3 + angle);
-      leg.rotation.x = 0.3;
-      spider.add(leg);
-    }
-
-    return spider;
-  }
-
-  // Add spiders near webs and in corners
-  const spiderPositions = [
-    { pos: [-ROOM_W/2 + 0.25, ROOM_H - 0.4, -ROOM_D/2 + 0.2], rot: [0, 0, 0] },
-    { pos: [ROOM_W/2 - 0.35, ROOM_H - 0.35, -ROOM_D/2 + 0.2], rot: [0, 0, 0.5] },
-    { pos: [-ROOM_W/2 + 0.2, ROOM_H - 0.6, -1.5], rot: [0, Math.PI/2, -0.3] },
-    { pos: [ROOM_W/2 - 0.2, 2.5, 1.8], rot: [0, -Math.PI/2, 0.4] },
-    { pos: [-2.8, ROOM_H - 0.1, -3.8], rot: [Math.PI/2, 0, 0] },
-    { pos: [3.2, ROOM_H - 0.1, -2.5], rot: [Math.PI/2, 0, 0.8] },
-  ];
-
-  spiderPositions.forEach(({ pos, rot }) => {
-    const spider = createSpider();
-    spider.position.set(...pos);
-    spider.rotation.set(...rot);
-    spider.castShadow = true;
-    scene.add(spider);
-  });
-}
-
 function buildRoom() {
   while (scene.children.length) scene.remove(scene.children[0]);
   roomObjects = []; extraObj = null; anomalyDesc = '';
@@ -1013,9 +907,7 @@ function buildRoom() {
     new THREE.MeshBasicMaterial({ color: 0x1a0404 }));
   paint.position.set(0, 2, -ROOM_D/2 + 0.13); scene.add(paint);
 
-  // Add spider webs and spiders
-  addSpiderWebs();
-  addSpiders();
+  // Spider webs and spiders removed - they were causing tunnel-like artifacts
 
   buildDoors();
   buildRoomObjects();
@@ -1129,20 +1021,69 @@ function startDoorOpenAnim(which, onDone) {
 
 function buildRoomObjects() {
   const count = DIFF_COUNTS[difficulty];
+  
   MASTER_OBJECTS.slice(0, count).forEach((def, i) => {
-    let geo;
-    switch (def.geo) {
-      case 'cylinder': geo = new THREE.CylinderGeometry(...def.size); break;
-      case 'sphere':   geo = new THREE.SphereGeometry(...def.size);   break;
-      default:         geo = new THREE.BoxGeometry(...def.size);
+    // Use cached/preloaded model
+    if (modelCache[def.model]) {
+      const model = modelCache[def.model].clone();
+      model.position.set(...def.pos);
+      model.scale.set(def.scale, def.scale, def.scale);
+      model.userData = { 
+        defIndex: i, 
+        basePos: model.position.clone(), 
+        baseScale: model.scale.clone(),
+        label: def.label, 
+        modelFile: def.model 
+      };
+      
+      // Clean up the model - only show the main object
+      model.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+          
+          // Hide any unwanted geometry
+          const childName = (child.name || '').toLowerCase();
+          if (childName.includes('tunnel') ||
+              childName.includes('plane') ||
+              childName.includes('background') ||
+              childName.includes('floor') ||
+              childName.includes('ground') ||
+              childName.includes('wall') ||
+              childName.includes('room') ||
+              childName.includes('environment')) {
+            child.visible = false;
+          }
+        }
+      });
+      
+      scene.add(model);
+      roomObjects.push(model);
+      console.log(`✓ Added ${def.label} at`, def.pos);
+    } else {
+      // Fallback cube if model not loaded
+      console.warn(`⚠ Model not loaded: ${def.model}, using fallback cube`);
+      const cubeGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+      const cubeMat = new THREE.MeshStandardMaterial({ 
+        color: 0xff6666, 
+        roughness: 0.7,
+        emissive: 0x330000,
+        emissiveIntensity: 0.2
+      });
+      const mesh = new THREE.Mesh(cubeGeo, cubeMat);
+      mesh.position.set(...def.pos);
+      mesh.position.y = 0.4;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.userData = { 
+        defIndex: i, 
+        basePos: mesh.position.clone(), 
+        baseColor: 0xff6666,
+        label: def.label 
+      };
+      scene.add(mesh);
+      roomObjects.push(mesh);
     }
-    const matM  = new THREE.MeshStandardMaterial({ color: def.color, roughness: 0.82 });
-    const mesh = new THREE.Mesh(geo, matM);
-    mesh.position.set(...def.pos);
-    mesh.castShadow = mesh.receiveShadow = true;
-    mesh.userData = { defIndex: i, baseColor: def.color, basePos: mesh.position.clone(), label: def.label };
-    scene.add(mesh);
-    roomObjects.push(mesh);
   });
 }
 
@@ -1150,7 +1091,8 @@ function buildRoomObjects() {
 function captureSnapshot() {
   refSnapshot = roomObjects.map(obj => ({
     pos:   obj.position.clone(),
-    color: obj.material.color.getHex(),
+    rot:   obj.rotation.clone(),
+    scale: obj.scale.clone(),
     vis:   obj.visible,
   }));
 }
@@ -1159,13 +1101,14 @@ function restoreFromSnapshot() {
   roomObjects.forEach((obj, i) => {
     if (!refSnapshot[i]) return;
     obj.position.copy(refSnapshot[i].pos);
-    obj.material.color.setHex(refSnapshot[i].color);
+    obj.rotation.copy(refSnapshot[i].rot);
+    obj.scale.copy(refSnapshot[i].scale);
     obj.visible = refSnapshot[i].vis;
   });
 }
 
 // ── Anomaly system ────────────────────────────────────────────
-const ANOMALY_TYPES = ['move', 'color', 'remove', 'add', 'flicker'];
+const ANOMALY_TYPES = ['move', 'remove', 'add', 'rotate'];
 function applyAnomaly() {
   const type = ANOMALY_TYPES[Math.floor(Math.random() * ANOMALY_TYPES.length)];
   const visible = roomObjects.filter(o => o.visible);
@@ -1180,12 +1123,10 @@ function applyAnomaly() {
       anomalyDesc = `"${obj.userData.label}" has moved to a different position.`;
       break;
     }
-    case 'color': {
+    case 'rotate': {
       const obj = visible[Math.floor(Math.random() * visible.length)];
-      const palette = [0xcc2222, 0x2288aa, 0x228833, 0xcc8800, 0xaa22aa, 0x22aacc, 0xddcc11];
-      let c; do { c = palette[Math.floor(Math.random() * palette.length)]; } while (c === obj.userData.baseColor);
-      obj.material.color.setHex(c);
-      anomalyDesc = `"${obj.userData.label}" has changed color.`;
+      obj.rotation.y += Math.PI / 2 + (Math.random() - 0.5) * 0.5;
+      anomalyDesc = `"${obj.userData.label}" has been rotated.`;
       break;
     }
     case 'remove': {
@@ -1195,31 +1136,41 @@ function applyAnomaly() {
       break;
     }
     case 'add': {
-      extraObj = new THREE.Mesh(
-        new THREE.BoxGeometry(0.42, 0.42, 0.42),
-        new THREE.MeshStandardMaterial({ color: 0xff1111, emissive: 0x3a0000, roughness: 0.4 })
-      );
-      extraObj.position.set(
-        (Math.random() - 0.5) * (ROOM_W - 2.5), 0.21,
-        (Math.random() - 0.5) * (ROOM_D - 4.5) - 1
-      );
-      extraObj.castShadow = true; scene.add(extraObj);
-      anomalyDesc = 'An unknown object has appeared that was not here before.';
-      break;
-    }
-    case 'flicker': {
-      const bI = 2.0, bA = 1.3;
-      flickerIntv = setInterval(() => {
-        if (!gameActive) { clearInterval(flickerIntv); return; }
-        if (Math.random() < 0.28) {
-          pointLight.intensity  = 0.05 + Math.random() * 0.4;
-          ambientLight.intensity = 0.15;
-        } else {
-          pointLight.intensity  = bI;
-          ambientLight.intensity = bA;
-        }
-      }, 100 + Math.random() * 220);
-      anomalyDesc = 'The lighting is behaving strangely — something is wrong with the electricity.';
+      // Add a random model from the available ones
+      const randomDef = MASTER_OBJECTS[Math.floor(Math.random() * MASTER_OBJECTS.length)];
+      if (modelCache[randomDef.model]) {
+        extraObj = modelCache[randomDef.model].clone();
+        extraObj.position.set(
+          (Math.random() - 0.5) * (ROOM_W - 2.5), 0.0,
+          (Math.random() - 0.5) * (ROOM_D - 4.5) - 1
+        );
+        extraObj.scale.set(randomDef.scale, randomDef.scale, randomDef.scale);
+        extraObj.traverse((child) => {
+          if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
+        scene.add(extraObj);
+        anomalyDesc = `A new object has appeared: "${randomDef.label}".`;
+      } else {
+        // Fallback cube
+        const cubeGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+        const cubeMat = new THREE.MeshStandardMaterial({ 
+          color: 0xffff00, 
+          roughness: 0.7,
+          emissive: 0x444400,
+          emissiveIntensity: 0.3
+        });
+        extraObj = new THREE.Mesh(cubeGeo, cubeMat);
+        extraObj.position.set(
+          (Math.random() - 0.5) * (ROOM_W - 2.5), 0.4,
+          (Math.random() - 0.5) * (ROOM_D - 4.5) - 1
+        );
+        extraObj.castShadow = true;
+        scene.add(extraObj);
+        anomalyDesc = 'A new yellow cube has appeared that was not here before.';
+      }
       break;
     }
   }
@@ -1585,6 +1536,75 @@ function startChallengeRoom() {
 }
 
 // ═════════════════════════════════════════════════════════════
+// PRELOAD ALL MODELS
+// ═════════════════════════════════════════════════════════════
+let modelsLoaded = false;
+let loadingProgress = 0;
+
+function preloadAllModels(callback) {
+  // Check if running from file:// protocol
+  if (window.location.protocol === 'file:') {
+    console.error('⚠️ WARNING: Running from file:// protocol. GLB models may not load due to CORS restrictions.');
+    console.error('Please run a local web server. For example:');
+    console.error('  - Python: python -m http.server 8000');
+    console.error('  - Node.js: npx http-server');
+    console.error('  - VS Code: Use Live Server extension');
+  }
+  
+  const loader = new THREE.GLTFLoader();
+  const allModels = [
+    'hantu_kyunti.glb',
+    'torture_chair.glb',
+    'ornate_ouija_board_and_planchette.glb',
+    'old_bathroom_cabinet_with_weathered_wood_texture.glb'
+  ];
+  
+  let loaded = 0;
+  const total = allModels.length;
+  
+  console.log('Preloading models...');
+  console.log('Current location:', window.location.href);
+  
+  allModels.forEach(modelPath => {
+    console.log(`Attempting to load: ${modelPath}`);
+    loader.load(
+      modelPath,
+      (gltf) => {
+        modelCache[modelPath] = gltf.scene;
+        if (modelPath === 'hantu_kyunti.glb') {
+          ghostModelCache = gltf.scene;
+        }
+        loaded++;
+        loadingProgress = (loaded / total) * 100;
+        console.log(`✓ Loaded ${modelPath} (${loaded}/${total})`);
+        
+        if (loaded === total) {
+          modelsLoaded = true;
+          console.log('✓ All models loaded successfully!');
+          if (callback) callback();
+        }
+      },
+      (progress) => {
+        if (progress.total > 0) {
+          const percent = (progress.loaded / progress.total * 100).toFixed(0);
+          console.log(`  Loading ${modelPath}: ${percent}%`);
+        }
+      },
+      (error) => {
+        console.error(`✗ Failed to load ${modelPath}:`, error);
+        console.error(`  Full path attempted: ${window.location.origin}/${modelPath}`);
+        loaded++;
+        if (loaded === total) {
+          modelsLoaded = true;
+          console.warn('⚠️ Model loading complete (with errors). Using fallback objects.');
+          if (callback) callback();
+        }
+      }
+    );
+  });
+}
+
+// ═════════════════════════════════════════════════════════════
 // START GAME
 // ═════════════════════════════════════════════════════════════
 function startGame() {
@@ -1636,7 +1656,26 @@ setupPointerLock();
 setupKeys();
 animate();
 
-startBtn.addEventListener('click', () => { if (difficulty) startGame(); });
+// Preload models on page load
+preloadAllModels(() => {
+  console.log('Ready to start game!');
+});
+
+startBtn.addEventListener('click', () => { 
+  if (difficulty) {
+    if (!modelsLoaded) {
+      startBtn.textContent = 'Loading...';
+      startBtn.disabled = true;
+      preloadAllModels(() => {
+        startBtn.textContent = 'Enter';
+        startBtn.disabled = false;
+        startGame();
+      });
+    } else {
+      startGame();
+    }
+  }
+});
 restartBtn.addEventListener('click', () => { gameoverScreen.style.display = 'none'; startGame(); });
 mainMenuBtn.addEventListener('click', () => { playClick(); goToMainMenu(); });
 </script>
