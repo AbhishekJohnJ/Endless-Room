@@ -240,9 +240,11 @@
     @keyframes ghost-vignette-in {
       to { opacity:1; }
     }
-    #ghost-svg-wrap {
+    #ghost-canvas {
       position:relative;
       z-index:2;
+      width: min(70vw, 600px);
+      height: min(70vh, 600px);
       opacity:0;
       transform:scale(0.4) translateY(80px);
       animation: ghost-appear 0.08s 0.04s forwards cubic-bezier(0.1,0.8,0.2,1);
@@ -250,19 +252,6 @@
     }
     @keyframes ghost-appear {
       to { opacity:1; transform:scale(1) translateY(0); }
-    }
-    #ghost-svg-wrap svg {
-      width: min(55vw, 420px);
-      height: auto;
-      animation: ghost-shake 0.06s 0.04s infinite;
-    }
-    @keyframes ghost-shake {
-      0%   { transform: translate(0,0) rotate(0deg); }
-      20%  { transform: translate(-4px, 3px) rotate(-1.5deg); }
-      40%  { transform: translate(4px,-3px) rotate(1.5deg); }
-      60%  { transform: translate(-3px, 2px) rotate(-1deg); }
-      80%  { transform: translate(3px,-2px) rotate(1deg); }
-      100% { transform: translate(0,0) rotate(0deg); }
     }
     #ghost-scream-text {
       position:absolute;
@@ -401,6 +390,7 @@
 <body>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
 <!-- START SCREEN -->
 <div id="start-screen" class="screen">
@@ -460,44 +450,7 @@
 <!-- GHOST JUMPSCARE OVERLAY -->
 <div id="ghost-overlay">
   <div class="ghost-vignette"></div>
-  <div id="ghost-svg-wrap">
-    <!-- Procedural ghost SVG — replace inner SVG with real asset later -->
-    <svg viewBox="0 0 260 340" xmlns="http://www.w3.org/2000/svg" fill="none">
-      <!-- Body -->
-      <ellipse cx="130" cy="140" rx="68" ry="85" fill="#c8c8d8" opacity="0.93"/>
-      <!-- Head bump -->
-      <ellipse cx="130" cy="80" rx="58" ry="60" fill="#d0d0e0" opacity="0.95"/>
-      <!-- Wavy bottom hem -->
-      <path d="M62 205 Q75 235 90 215 Q105 195 120 220 Q135 245 150 220 Q165 195 180 215 Q195 235 198 205 L198 240 Q182 270 165 250 Q148 230 130 255 Q112 280 95 250 Q78 220 62 240 Z"
-            fill="#c8c8d8" opacity="0.93"/>
-      <!-- Dark hollow eyes -->
-      <ellipse cx="108" cy="95" rx="13" ry="17" fill="#1a0022" opacity="0.92"/>
-      <ellipse cx="152" cy="95" rx="13" ry="17" fill="#1a0022" opacity="0.92"/>
-      <!-- Eye glow -->
-      <ellipse cx="108" cy="95" rx="6" ry="8" fill="#ff1111" opacity="0.7"/>
-      <ellipse cx="152" cy="95" rx="6" ry="8" fill="#ff1111" opacity="0.7"/>
-      <!-- Mouth — gaping scream -->
-      <ellipse cx="130" cy="128" rx="18" ry="22" fill="#1a0022" opacity="0.9"/>
-      <ellipse cx="130" cy="128" rx="8" ry="10" fill="#550000" opacity="0.7"/>
-      <!-- Arms reaching out -->
-      <path d="M62 155 Q30 130 10 145 Q6 160 18 165 Q35 158 62 175 Z" fill="#c0c0d4" opacity="0.85"/>
-      <path d="M198 155 Q230 130 250 145 Q254 160 242 165 Q225 158 198 175 Z" fill="#c0c0d4" opacity="0.85"/>
-      <!-- Fingers left -->
-      <path d="M10 145 Q2 135 8 130" stroke="#c0c0d4" stroke-width="4" stroke-linecap="round"/>
-      <path d="M10 145 Q0 145 4 138" stroke="#c0c0d4" stroke-width="4" stroke-linecap="round"/>
-      <path d="M10 145 Q0 153 6 158" stroke="#c0c0d4" stroke-width="4" stroke-linecap="round"/>
-      <!-- Fingers right -->
-      <path d="M250 145 Q258 135 252 130" stroke="#c0c0d4" stroke-width="4" stroke-linecap="round"/>
-      <path d="M250 145 Q260 145 256 138" stroke="#c0c0d4" stroke-width="4" stroke-linecap="round"/>
-      <path d="M250 145 Q260 153 254 158" stroke="#c0c0d4" stroke-width="4" stroke-linecap="round"/>
-      <!-- Scratchy detail lines -->
-      <path d="M100 170 Q110 175 120 168 Q130 162 140 170 Q150 178 160 170" stroke="#aaaabc" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
-      <path d="M105 185 Q118 190 130 183 Q142 176 155 185" stroke="#aaaabc" stroke-width="1" stroke-linecap="round" opacity="0.35"/>
-      <!-- Glow halo -->
-      <ellipse cx="130" cy="80" rx="65" ry="68" fill="none" stroke="#ff3333" stroke-width="2" opacity="0.35"/>
-      <ellipse cx="130" cy="80" rx="72" ry="76" fill="none" stroke="#ff0000" stroke-width="1" opacity="0.18"/>
-    </svg>
-  </div>
+  <canvas id="ghost-canvas"></canvas>
   <div id="ghost-scream-text">YOU DIED</div>
 </div>
 
@@ -627,88 +580,63 @@ function playDoorCreak() {
 }
 
 // ═════════════════════════════════════════════════════════════
-// 3D GHOST MODEL  (primitive mesh — swap with GLTF later)
+// 3D GHOST MODEL  (loaded from hantu_kyunti.glb)
 // ═════════════════════════════════════════════════════════════
-function buildGhost3D() {
-  const group = new THREE.Group();
+let ghostModelCache = null;
 
-  const ghostMat = new THREE.MeshStandardMaterial({
-    color: 0xd0d0e8,
-    emissive: 0xff0000,
-    emissiveIntensity: 0.55,
-    roughness: 0.8,
-    transparent: true,
-    opacity: 0.92,
-  });
-  const eyeMat = new THREE.MeshStandardMaterial({
-    color: 0x000000,
-    emissive: 0xff1111,
-    emissiveIntensity: 1.2,
-    roughness: 1,
-  });
-
-  // Body — tapered cylinder (wide top, pointy bottom)
-  const bodyGeo = new THREE.CylinderGeometry(0.38, 0.18, 1.6, 12, 1, false);
-  const body = new THREE.Mesh(bodyGeo, ghostMat);
-  body.position.y = 0;
-  group.add(body);
-
-  // Head — sphere on top
-  const headGeo = new THREE.SphereGeometry(0.44, 14, 10);
-  const head = new THREE.Mesh(headGeo, ghostMat);
-  head.position.y = 1.1;
-  group.add(head);
-
-  // Eyes
-  [-0.16, 0.16].forEach(ox => {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.085, 8, 8), eyeMat);
-    eye.position.set(ox, 1.15, 0.36);
-    group.add(eye);
-  });
-
-  // Mouth — thin ellipse cavity
-  const mouthGeo = new THREE.SphereGeometry(0.11, 8, 5);
-  const mouth = new THREE.Mesh(mouthGeo, eyeMat);
-  mouth.scale.set(1.5, 0.6, 0.5);
-  mouth.position.set(0, 0.96, 0.4);
-  group.add(mouth);
-
-  // Wavy hem "tentacles" at bottom
-  for (let i = 0; i < 5; i++) {
-    const angle = (i / 5) * Math.PI * 2;
-    const tenGeo = new THREE.CylinderGeometry(0.06, 0.02, 0.45, 6);
-    const ten = new THREE.Mesh(tenGeo, ghostMat);
-    ten.position.set(Math.sin(angle)*0.22, -0.95, Math.cos(angle)*0.22);
-    ten.rotation.z = (Math.random()-0.5)*0.4;
-    ten.rotation.x = (Math.random()-0.5)*0.3;
-    group.add(ten);
+function loadGhostModel(callback) {
+  if (ghostModelCache) {
+    callback(ghostModelCache.clone());
+    return;
   }
 
-  // Outstretched arms
-  [-1, 1].forEach(side => {
-    const armGeo = new THREE.CylinderGeometry(0.07, 0.04, 0.85, 8);
-    const arm = new THREE.Mesh(armGeo, ghostMat);
-    arm.rotation.z = side * Math.PI / 2.4;
-    arm.position.set(side * 0.52, 0.55, 0);
-    group.add(arm);
-    // finger claws
-    for (let f = 0; f < 3; f++) {
-      const clawGeo = new THREE.CylinderGeometry(0.025, 0.008, 0.22, 5);
-      const claw = new THREE.Mesh(clawGeo, eyeMat);
-      const fa = ((f/3)-0.33)*0.8;
-      claw.position.set(side*(0.92 + Math.sin(fa)*0.08), 0.55 - Math.cos(arm.rotation.z)*0.3, Math.sin(fa)*0.1);
-      claw.rotation.z = arm.rotation.z + (f-1)*0.2;
-      group.add(claw);
+  const loader = new THREE.GLTFLoader();
+  loader.load(
+    'hantu_kyunti.glb',
+    (gltf) => {
+      const model = gltf.scene;
+      
+      // Scale and position adjustments
+      model.scale.set(1.2, 1.2, 1.2);
+      
+      // Add red glow light emanating from ghost
+      const ghostLight = new THREE.PointLight(0xff0000, 1.8, 5);
+      ghostLight.position.set(0, 1.0, 0);
+      model.add(ghostLight);
+      
+      // Apply emissive material to make it more menacing
+      model.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+          if (child.material) {
+            child.material.emissive = new THREE.Color(0x330000);
+            child.material.emissiveIntensity = 0.4;
+          }
+        }
+      });
+      
+      ghostModelCache = model;
+      callback(model.clone());
+    },
+    undefined,
+    (error) => {
+      console.error('Error loading ghost model:', error);
+      // Fallback to a simple placeholder if model fails to load
+      const group = new THREE.Group();
+      const ghostMat = new THREE.MeshStandardMaterial({
+        color: 0xd0d0e8,
+        emissive: 0xff0000,
+        emissiveIntensity: 0.55,
+      });
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 16), ghostMat);
+      group.add(body);
+      const ghostLight = new THREE.PointLight(0xff0000, 1.8, 5);
+      ghostLight.position.set(0, 0.8, 0);
+      group.add(ghostLight);
+      callback(group);
     }
-  });
-
-  // Red glow light emanating from ghost
-  const ghostLight = new THREE.PointLight(0xff0000, 1.8, 5);
-  ghostLight.position.set(0, 0.8, 0);
-  group.add(ghostLight);
-
-  group.scale.set(0.9, 0.9, 0.9);
-  return group;
+  );
 }
 
 // ── Three.js globals ──────────────────────────────────────────
@@ -1238,23 +1166,37 @@ function spawnGhostCharge(which) {
   tone(60, 'sawtooth', 0.4, 0.3);
   tone(40, 'sawtooth', 0.5, 0.25, 0.1);
 
-  // Place ghost just beyond the door opening
-  ghost3D = buildGhost3D();
-  const doorX = (which === 'blue') ? -1.7 : 1.7;
-  ghost3D.position.set(doorX, 1.0, ROOM_D / 2 + 0.5);
-  // Face toward player
-  ghost3D.rotation.y = Math.PI;
-  scene.add(ghost3D);
-  ghostStartPos = ghost3D.position.clone();
-  ghostProgress = 0;
+  // Load and place ghost model
+  loadGhostModel((model) => {
+    ghost3D = model;
+    const doorX = (which === 'blue') ? -1.7 : 1.7;
+    ghost3D.position.set(doorX, 0.5, ROOM_D / 2 + 0.5);
+    
+    // Calculate direction to face the player
+    const directionToPlayer = new THREE.Vector3();
+    directionToPlayer.subVectors(camera.position, ghost3D.position);
+    directionToPlayer.y = 0; // Keep rotation only on horizontal plane
+    const angleToPlayer = Math.atan2(directionToPlayer.x, directionToPlayer.z);
+    ghost3D.rotation.y = angleToPlayer;
+    
+    scene.add(ghost3D);
+    ghostStartPos = ghost3D.position.clone();
+    ghostProgress = 0;
 
-  // Screech fires as ghost starts moving
-  setTimeout(() => { playJumpscare(); }, 80);
+    // Screech fires as ghost starts moving
+    setTimeout(() => { playJumpscare(); }, 80);
+  });
 }
 
 // ═════════════════════════════════════════════════════════════
 // GHOST SCREEN OVERLAY  (fires after 3D ghost reaches player)
 // ═════════════════════════════════════════════════════════════
+let overlayRenderer = null;
+let overlayScene = null;
+let overlayCamera = null;
+let overlayGhost = null;
+let overlayAnimFrame = null;
+
 function showGhostScreenOverlay(onDone) {
   // Hard red flash
   flash.style.background = '#ff0000'; flash.style.opacity = '1';
@@ -1264,34 +1206,55 @@ function showGhostScreenOverlay(onDone) {
     setTimeout(() => { flash.style.transition = ''; }, 600);
   }, 60);
 
-  // Rebuild overlay HTML to re-trigger CSS animations
-  ghostOverlay.innerHTML = `
-    <div class="ghost-vignette"></div>
-    <div id="ghost-svg-wrap">
-      <svg viewBox="0 0 260 340" xmlns="http://www.w3.org/2000/svg" fill="none">
-        <ellipse cx="130" cy="140" rx="68" ry="85" fill="#c8c8d8" opacity="0.93"/>
-        <ellipse cx="130" cy="80"  rx="58" ry="60" fill="#d0d0e0" opacity="0.95"/>
-        <path d="M62 205 Q75 235 90 215 Q105 195 120 220 Q135 245 150 220 Q165 195 180 215 Q195 235 198 205 L198 240 Q182 270 165 250 Q148 230 130 255 Q112 280 95 250 Q78 220 62 240 Z" fill="#c8c8d8" opacity="0.93"/>
-        <ellipse cx="108" cy="95" rx="13" ry="17" fill="#1a0022" opacity="0.92"/>
-        <ellipse cx="152" cy="95" rx="13" ry="17" fill="#1a0022" opacity="0.92"/>
-        <ellipse cx="108" cy="95" rx="6"  ry="8"  fill="#ff1111" opacity="0.7"/>
-        <ellipse cx="152" cy="95" rx="6"  ry="8"  fill="#ff1111" opacity="0.7"/>
-        <ellipse cx="130" cy="128" rx="18" ry="22" fill="#1a0022" opacity="0.9"/>
-        <ellipse cx="130" cy="128" rx="8"  ry="10" fill="#550000" opacity="0.7"/>
-        <path d="M62 155 Q30 130 10 145 Q6 160 18 165 Q35 158 62 175 Z" fill="#c0c0d4" opacity="0.85"/>
-        <path d="M198 155 Q230 130 250 145 Q254 160 242 165 Q225 158 198 175 Z" fill="#c0c0d4" opacity="0.85"/>
-        <path d="M10 145 Q2 135 8 130" stroke="#c0c0d4" stroke-width="4" stroke-linecap="round"/>
-        <path d="M10 145 Q0 145 4 138" stroke="#c0c0d4" stroke-width="4" stroke-linecap="round"/>
-        <path d="M10 145 Q0 153 6 158" stroke="#c0c0d4" stroke-width="4" stroke-linecap="round"/>
-        <path d="M250 145 Q258 135 252 130" stroke="#c0c0d4" stroke-width="4" stroke-linecap="round"/>
-        <path d="M250 145 Q260 145 256 138" stroke="#c0c0d4" stroke-width="4" stroke-linecap="round"/>
-        <path d="M250 145 Q260 153 254 158" stroke="#c0c0d4" stroke-width="4" stroke-linecap="round"/>
-        <ellipse cx="130" cy="80" rx="65" ry="68" fill="none" stroke="#ff3333" stroke-width="2" opacity="0.35"/>
-        <ellipse cx="130" cy="80" rx="72" ry="76" fill="none" stroke="#ff0000" stroke-width="1" opacity="0.18"/>
-      </svg>
-    </div>
-    <div id="ghost-scream-text">YOU DIED</div>
-  `;
+  // Setup 3D canvas for ghost overlay
+  const canvas = document.getElementById('ghost-canvas');
+  const w = canvas.offsetWidth || 600;
+  const h = canvas.offsetHeight || 600;
+  
+  overlayRenderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  overlayRenderer.setSize(w, h);
+  overlayRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  
+  overlayScene = new THREE.Scene();
+  overlayCamera = new THREE.PerspectiveCamera(50, w / h, 0.1, 100);
+  overlayCamera.position.set(0, 1.2, 3.5);
+  overlayCamera.lookAt(0, 1, 0);
+  
+  // Dramatic lighting
+  const redLight = new THREE.PointLight(0xff0000, 2.5, 10);
+  redLight.position.set(0, 2, 2);
+  overlayScene.add(redLight);
+  
+  const fillLight = new THREE.PointLight(0xff3333, 1.2, 8);
+  fillLight.position.set(-2, 1, 1);
+  overlayScene.add(fillLight);
+  
+  const ambLight = new THREE.AmbientLight(0x330000, 0.8);
+  overlayScene.add(ambLight);
+  
+  // Load ghost model for overlay
+  loadGhostModel((model) => {
+    overlayGhost = model;
+    overlayGhost.position.set(0, 0, 0);
+    overlayGhost.rotation.y = 0;
+    overlayGhost.scale.set(1.5, 1.5, 1.5);
+    overlayScene.add(overlayGhost);
+    
+    // Animate the ghost (shake effect)
+    let shakeTime = 0;
+    function animateOverlay() {
+      if (!overlayGhost) return;
+      shakeTime += 0.1;
+      overlayGhost.rotation.z = Math.sin(shakeTime * 8) * 0.05;
+      overlayGhost.rotation.x = Math.sin(shakeTime * 6) * 0.03;
+      overlayGhost.position.x = Math.sin(shakeTime * 12) * 0.08;
+      overlayGhost.position.y = Math.sin(shakeTime * 10) * 0.06;
+      overlayRenderer.render(overlayScene, overlayCamera);
+      overlayAnimFrame = requestAnimationFrame(animateOverlay);
+    }
+    animateOverlay();
+  });
+  
   ghostOverlay.classList.add('active');
 
   setTimeout(() => {
@@ -1302,6 +1265,18 @@ function showGhostScreenOverlay(onDone) {
       ghostOverlay.style.transition = '';
       ghostOverlay.style.opacity = '';
       ghostActive = false;
+      
+      // Cleanup overlay renderer
+      if (overlayAnimFrame) cancelAnimationFrame(overlayAnimFrame);
+      if (overlayGhost) overlayScene.remove(overlayGhost);
+      if (overlayRenderer) {
+        overlayRenderer.dispose();
+        overlayRenderer = null;
+      }
+      overlayScene = null;
+      overlayCamera = null;
+      overlayGhost = null;
+      
       if (onDone) onDone();
     }, 650);
   }, 1600);
@@ -1376,12 +1351,20 @@ function update() {
     // Ease in — accelerates toward player
     const ease = t * t;
     ghost3D.position.lerpVectors(ghostStartPos, camera.position, ease);
-    // Bob and wobble
-    ghost3D.rotation.y += dt * 3;
-    ghost3D.position.y = ghostStartPos.y + Math.sin(t * Math.PI * 2) * 0.15;
+    
+    // Keep ghost facing the player as it charges
+    const directionToPlayer = new THREE.Vector3();
+    directionToPlayer.subVectors(camera.position, ghost3D.position);
+    directionToPlayer.y = 0;
+    const angleToPlayer = Math.atan2(directionToPlayer.x, directionToPlayer.z);
+    ghost3D.rotation.y = angleToPlayer + Math.sin(t * Math.PI * 8) * 0.15; // slight wobble
+    
+    // Bob up and down slightly
+    ghost3D.position.y = ghostStartPos.y + Math.sin(t * Math.PI * 4) * 0.12;
 
     // Scale up as it gets closer (looming effect)
-    const sc = 0.9 + ease * 1.6;
+    const baseScale = 1.2;
+    const sc = baseScale + ease * 1.4;
     ghost3D.scale.set(sc, sc, sc);
 
     if (t >= 1) {
