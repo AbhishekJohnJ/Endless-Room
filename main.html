@@ -835,6 +835,130 @@ const doors = { red: null, blue: null };
 // ═════════════════════════════════════════════════════════════
 // ROOM BUILDER
 // ═════════════════════════════════════════════════════════════
+// Spider web builder
+function addSpiderWebs() {
+  const webMat = new THREE.MeshBasicMaterial({
+    color: 0xcccccc,
+    transparent: true,
+    opacity: 0.15,
+    side: THREE.DoubleSide,
+  });
+
+  // Create spider web geometry
+  function createWebGeometry(size) {
+    const geometry = new THREE.BufferGeometry();
+    const vertices = [];
+    const center = [0, 0, 0];
+    const spokes = 8;
+    const rings = 4;
+
+    // Create radial spokes
+    for (let i = 0; i < spokes; i++) {
+      const angle = (i / spokes) * Math.PI * 2;
+      const x = Math.cos(angle) * size;
+      const y = Math.sin(angle) * size;
+      vertices.push(...center, x, y, 0);
+    }
+
+    // Create concentric rings
+    for (let r = 1; r <= rings; r++) {
+      const radius = (r / rings) * size;
+      for (let i = 0; i <= spokes; i++) {
+        const angle1 = (i / spokes) * Math.PI * 2;
+        const angle2 = ((i + 1) / spokes) * Math.PI * 2;
+        const x1 = Math.cos(angle1) * radius;
+        const y1 = Math.sin(angle1) * radius;
+        const x2 = Math.cos(angle2) * radius;
+        const y2 = Math.sin(angle2) * radius;
+        vertices.push(x1, y1, 0, x2, y2, 0);
+      }
+    }
+
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    return geometry;
+  }
+
+  // Add webs to corners and walls
+  const webPositions = [
+    // Back wall corners
+    { pos: [-ROOM_W/2 + 0.3, ROOM_H - 0.3, -ROOM_D/2 + 0.15], rot: [0, 0, 0], size: 0.4 },
+    { pos: [ROOM_W/2 - 0.3, ROOM_H - 0.3, -ROOM_D/2 + 0.15], rot: [0, 0, 0], size: 0.35 },
+    // Side walls
+    { pos: [-ROOM_W/2 + 0.15, ROOM_H - 0.5, -2], rot: [0, Math.PI/2, 0], size: 0.3 },
+    { pos: [ROOM_W/2 - 0.15, ROOM_H - 0.4, 2], rot: [0, -Math.PI/2, 0], size: 0.35 },
+    // Ceiling corners
+    { pos: [-3, ROOM_H - 0.05, -4], rot: [Math.PI/2, 0, 0], size: 0.5 },
+    { pos: [3.5, ROOM_H - 0.05, -3], rot: [Math.PI/2, 0, 0.3], size: 0.4 },
+    { pos: [-2.5, ROOM_H - 0.05, 3], rot: [Math.PI/2, 0, -0.5], size: 0.45 },
+  ];
+
+  webPositions.forEach(({ pos, rot, size }) => {
+    const webGeo = createWebGeometry(size);
+    const web = new THREE.LineSegments(webGeo, webMat);
+    web.position.set(...pos);
+    web.rotation.set(...rot);
+    scene.add(web);
+  });
+}
+
+// Spider builder
+function addSpiders() {
+  const spiderMat = new THREE.MeshStandardMaterial({
+    color: 0x1a1a1a,
+    roughness: 0.9,
+    metalness: 0.1,
+  });
+
+  function createSpider() {
+    const spider = new THREE.Group();
+
+    // Body (two spheres)
+    const abdomen = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), spiderMat);
+    abdomen.scale.set(1, 0.8, 1.2);
+    spider.add(abdomen);
+
+    const thorax = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), spiderMat);
+    thorax.position.set(0, 0, 0.05);
+    spider.add(thorax);
+
+    // 8 legs
+    for (let i = 0; i < 8; i++) {
+      const side = i < 4 ? 1 : -1;
+      const legIndex = i % 4;
+      const angle = (legIndex / 3) * 0.6 - 0.3;
+      
+      const leg = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.003, 0.003, 0.08, 4),
+        spiderMat
+      );
+      leg.position.set(side * 0.02, -0.02, 0.02 + legIndex * 0.015);
+      leg.rotation.z = side * (Math.PI / 3 + angle);
+      leg.rotation.x = 0.3;
+      spider.add(leg);
+    }
+
+    return spider;
+  }
+
+  // Add spiders near webs and in corners
+  const spiderPositions = [
+    { pos: [-ROOM_W/2 + 0.25, ROOM_H - 0.4, -ROOM_D/2 + 0.2], rot: [0, 0, 0] },
+    { pos: [ROOM_W/2 - 0.35, ROOM_H - 0.35, -ROOM_D/2 + 0.2], rot: [0, 0, 0.5] },
+    { pos: [-ROOM_W/2 + 0.2, ROOM_H - 0.6, -1.5], rot: [0, Math.PI/2, -0.3] },
+    { pos: [ROOM_W/2 - 0.2, 2.5, 1.8], rot: [0, -Math.PI/2, 0.4] },
+    { pos: [-2.8, ROOM_H - 0.1, -3.8], rot: [Math.PI/2, 0, 0] },
+    { pos: [3.2, ROOM_H - 0.1, -2.5], rot: [Math.PI/2, 0, 0.8] },
+  ];
+
+  spiderPositions.forEach(({ pos, rot }) => {
+    const spider = createSpider();
+    spider.position.set(...pos);
+    spider.rotation.set(...rot);
+    spider.castShadow = true;
+    scene.add(spider);
+  });
+}
+
 function buildRoom() {
   while (scene.children.length) scene.remove(scene.children[0]);
   roomObjects = []; extraObj = null; anomalyDesc = '';
@@ -888,6 +1012,10 @@ function buildRoom() {
   const paint = new THREE.Mesh(new THREE.PlaneGeometry(1.34, 0.95),
     new THREE.MeshBasicMaterial({ color: 0x1a0404 }));
   paint.position.set(0, 2, -ROOM_D/2 + 0.13); scene.add(paint);
+
+  // Add spider webs and spiders
+  addSpiderWebs();
+  addSpiders();
 
   buildDoors();
   buildRoomObjects();
