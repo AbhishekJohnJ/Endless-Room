@@ -533,9 +533,11 @@
 <script>
 /* ═══════════════════════════════════════════════════════════════
    ENDLESS ROOMS  ·  Three.js r128
-   Additions:
+   Features:
      • ESC → pause overlay with Resume / Quit
-     • Ghost jumpscare (SVG, shake, scream audio) on wrong door
+     • Door open animation (hinged swing) for both doors
+     • Ghost 3D model charges from door on wrong choice
+     • SVG overlay scream after ghost reaches player
      • "Main Menu" button on game over screen
    ═══════════════════════════════════════════════════════════════ */
 
@@ -599,6 +601,116 @@ function playJumpscare() {
 function playCorrect() { tone(880, 'sine', 0.15, 0.18); tone(1100, 'sine', 0.15, 0.14, 0.1); }
 function playClick()   { tone(300, 'sine', 0.07, 0.1); }
 
+function playDoorCreak() {
+  // Slow sweep creak — FM-ish, low frequency warble
+  try {
+    const ctx = getACtx();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    const mod = ctx.createOscillator(), modG = ctx.createGain();
+    mod.frequency.value = 3; modG.gain.value = 18;
+    mod.connect(modG); modG.connect(o.frequency);
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(90, ctx.currentTime);
+    o.frequency.linearRampToValueAtTime(55, ctx.currentTime + 0.85);
+    g.gain.setValueAtTime(0, ctx.currentTime);
+    g.gain.linearRampToValueAtTime(0.22, ctx.currentTime + 0.05);
+    g.gain.linearRampToValueAtTime(0.14, ctx.currentTime + 0.7);
+    g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.9);
+    const dist = ctx.createWaveShaper();
+    const curve = new Float32Array(256);
+    for (let i = 0; i < 256; i++) { const x = (i*2/256)-1; curve[i]=Math.tanh(x*4); }
+    dist.curve = curve;
+    o.connect(dist); dist.connect(g); g.connect(ctx.destination);
+    mod.start(ctx.currentTime); mod.stop(ctx.currentTime + 0.9);
+    o.start(ctx.currentTime);   o.stop(ctx.currentTime + 0.9);
+  } catch(e) {}
+}
+
+// ═════════════════════════════════════════════════════════════
+// 3D GHOST MODEL  (primitive mesh — swap with GLTF later)
+// ═════════════════════════════════════════════════════════════
+function buildGhost3D() {
+  const group = new THREE.Group();
+
+  const ghostMat = new THREE.MeshStandardMaterial({
+    color: 0xd0d0e8,
+    emissive: 0xff0000,
+    emissiveIntensity: 0.55,
+    roughness: 0.8,
+    transparent: true,
+    opacity: 0.92,
+  });
+  const eyeMat = new THREE.MeshStandardMaterial({
+    color: 0x000000,
+    emissive: 0xff1111,
+    emissiveIntensity: 1.2,
+    roughness: 1,
+  });
+
+  // Body — tapered cylinder (wide top, pointy bottom)
+  const bodyGeo = new THREE.CylinderGeometry(0.38, 0.18, 1.6, 12, 1, false);
+  const body = new THREE.Mesh(bodyGeo, ghostMat);
+  body.position.y = 0;
+  group.add(body);
+
+  // Head — sphere on top
+  const headGeo = new THREE.SphereGeometry(0.44, 14, 10);
+  const head = new THREE.Mesh(headGeo, ghostMat);
+  head.position.y = 1.1;
+  group.add(head);
+
+  // Eyes
+  [-0.16, 0.16].forEach(ox => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.085, 8, 8), eyeMat);
+    eye.position.set(ox, 1.15, 0.36);
+    group.add(eye);
+  });
+
+  // Mouth — thin ellipse cavity
+  const mouthGeo = new THREE.SphereGeometry(0.11, 8, 5);
+  const mouth = new THREE.Mesh(mouthGeo, eyeMat);
+  mouth.scale.set(1.5, 0.6, 0.5);
+  mouth.position.set(0, 0.96, 0.4);
+  group.add(mouth);
+
+  // Wavy hem "tentacles" at bottom
+  for (let i = 0; i < 5; i++) {
+    const angle = (i / 5) * Math.PI * 2;
+    const tenGeo = new THREE.CylinderGeometry(0.06, 0.02, 0.45, 6);
+    const ten = new THREE.Mesh(tenGeo, ghostMat);
+    ten.position.set(Math.sin(angle)*0.22, -0.95, Math.cos(angle)*0.22);
+    ten.rotation.z = (Math.random()-0.5)*0.4;
+    ten.rotation.x = (Math.random()-0.5)*0.3;
+    group.add(ten);
+  }
+
+  // Outstretched arms
+  [-1, 1].forEach(side => {
+    const armGeo = new THREE.CylinderGeometry(0.07, 0.04, 0.85, 8);
+    const arm = new THREE.Mesh(armGeo, ghostMat);
+    arm.rotation.z = side * Math.PI / 2.4;
+    arm.position.set(side * 0.52, 0.55, 0);
+    group.add(arm);
+    // finger claws
+    for (let f = 0; f < 3; f++) {
+      const clawGeo = new THREE.CylinderGeometry(0.025, 0.008, 0.22, 5);
+      const claw = new THREE.Mesh(clawGeo, eyeMat);
+      const fa = ((f/3)-0.33)*0.8;
+      claw.position.set(side*(0.92 + Math.sin(fa)*0.08), 0.55 - Math.cos(arm.rotation.z)*0.3, Math.sin(fa)*0.1);
+      claw.rotation.z = arm.rotation.z + (f-1)*0.2;
+      group.add(claw);
+    }
+  });
+
+  // Red glow light emanating from ghost
+  const ghostLight = new THREE.PointLight(0xff0000, 1.8, 5);
+  ghostLight.position.set(0, 0.8, 0);
+  group.add(ghostLight);
+
+  group.scale.set(0.9, 0.9, 0.9);
+  return group;
+}
+
 // ── Three.js globals ──────────────────────────────────────────
 let renderer, scene, camera;
 const clock    = new THREE.Clock();
@@ -610,6 +722,20 @@ const ROOM_W = 13, ROOM_H = 3.4, ROOM_D = 15;
 const HALF_W = ROOM_W / 2 - 0.45;
 const NEAR_Z = ROOM_D  / 2 - 0.65;
 const FAR_Z  = -ROOM_D / 2 + 0.4;
+
+// ── Door animation state ───────────────────────────────────────
+const doorHinges  = { red: null, blue: null };
+const doorMeshes  = { red: null, blue: null };
+let   doorAnim    = null;
+let   doorAnimating = false;
+const DOOR_H = 2.5, DOOR_W = 1.05, DOOR_D = 0.2;
+const DOOR_OPEN_ANGLE = Math.PI / 2 * 0.92;
+
+// ── 3D Ghost state ─────────────────────────────────────────────
+let ghost3D       = null;
+let ghostCharging = false;
+let ghostStartPos = null;
+let ghostProgress = 0;
 
 function initThree() {
   renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -840,61 +966,109 @@ function buildRoom() {
 }
 
 function buildDoors() {
-  const dH = 2.5, dW = 1.05, dD = 0.2;
-  function makeDoor(color, emissive, x) {
+  /*
+    Each door uses a hinge pivot Object3D placed at the hinge edge.
+    Blue door (x=-1.7): hinge on its RIGHT side → pivot at x = -1.7 + DOOR_W/2
+      swings INWARD (into room, toward -Z) → rotation.y goes negative
+    Red  door (x=+1.7): hinge on its LEFT  side → pivot at x =  1.7 - DOOR_W/2
+      swings INWARD → rotation.y goes positive
+    The door mesh is offset inside the hinge group so its hinge-edge is at local 0,0,0.
+  */
+  const zPos = ROOM_D / 2 - 0.12;
+
+  function makeDoor(color, emissive, centerX, hingeSide) {
+    // hingeSide: +1 = right edge is hinge, -1 = left edge is hinge
+    const hinge = new THREE.Object3D();
+    // Pivot sits at the hinge edge of the door in world space
+    hinge.position.set(centerX + hingeSide * DOOR_W / 2, 0, zPos);
+    scene.add(hinge);
+
     const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(dW, dH, dD),
-      new THREE.MeshStandardMaterial({ color, roughness: 0.5, emissive })
+      new THREE.BoxGeometry(DOOR_W, DOOR_H, DOOR_D),
+      new THREE.MeshStandardMaterial({ color, roughness: 0.5, emissive, emissiveIntensity: 0.4 })
     );
-    mesh.position.set(x, dH/2, ROOM_D/2 - 0.12);
-    mesh.castShadow = true; scene.add(mesh);
-    return mesh;
-  }
-  doors.blue = makeDoor(0x0d4080, 0x001025, -1.7);
-  doors.red  = makeDoor(0x7a0e0e, 0x1e0000,  1.7);
+    // Offset mesh so its hinge edge aligns with hinge pivot (local origin)
+    mesh.position.set(-hingeSide * DOOR_W / 2, DOOR_H / 2, 0);
+    mesh.castShadow = true;
+    hinge.add(mesh);
 
-  function addFrame(mat, pos) {
-    const t = 0.11;
-    [[dW+t*2, t, dD+0.05, pos.x, pos.y+dH/2+t/2, pos.z],
-     [t, dH, dD+0.05, pos.x-dW/2-t/2, pos.y, pos.z],
-     [t, dH, dD+0.05, pos.x+dW/2+t/2, pos.y, pos.z]
-    ].forEach(([w,h,d,x,y,z]) => {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
-      m.position.set(x,y,z); scene.add(m);
-    });
-  }
-  addFrame(new THREE.MeshStandardMaterial({color:0x082040,roughness:.85}), doors.blue.position);
-  addFrame(new THREE.MeshStandardMaterial({color:0x4a0a0a,roughness:.85}), doors.red.position);
-
-  function addSign(pos, text, color) {
-    const cv = document.createElement('canvas');
-    cv.width = 256; cv.height = 64;
-    const cx = cv.getContext('2d');
-    cx.fillStyle = '#000'; cx.fillRect(0,0,256,64);
-    cx.fillStyle = '#' + color.toString(16).padStart(6,'0');
-    cx.font = 'bold 20px Courier New';
-    cx.textAlign = 'center'; cx.textBaseline = 'middle';
-    cx.fillText(text, 128, 32);
-    const sg = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.95, 0.24),
-      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true })
-    );
-    sg.position.set(pos.x, 2.88, pos.z + 0.18); scene.add(sg);
-  }
-  addSign(doors.blue.position, 'NO CHANGE', 0x3377cc);
-  addSign(doors.red.position,  'ANOMALY',   0xdd2211);
-
-  [doors.blue, doors.red].forEach(door => {
+    // Knob on door mesh
     const knob = new THREE.Mesh(
       new THREE.SphereGeometry(0.055, 8, 8),
       new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.15, metalness: 0.9 })
     );
-    knob.position.copy(door.position);
-    knob.position.z += dD/2 + 0.01;
-    knob.position.x += (door === doors.blue ? 0.38 : -0.38);
-    knob.position.y  = 1.0;
-    scene.add(knob);
-  });
+    // Knob on the free-swinging side, at handle height
+    knob.position.set(hingeSide * (DOOR_W / 2 - 0.14), 1.0 - DOOR_H / 2, DOOR_D / 2 + 0.01);
+    mesh.add(knob);
+
+    return { hinge, mesh };
+  }
+
+  const blueD = makeDoor(0x0d4080, 0x001025, -1.7, +1);
+  const redD  = makeDoor(0x7a0e0e, 0x1e0000,  1.7, -1);
+
+  doorHinges.blue = blueD.hinge;
+  doorHinges.red  = redD.hinge;
+  doorMeshes.blue = blueD.mesh;
+  doorMeshes.red  = redD.mesh;
+
+  // Keep doors.blue / doors.red pointing to mesh for proximity checks
+  doors.blue = blueD.mesh;
+  doors.red  = redD.mesh;
+
+  // Frames (static, around door opening in world space)
+  function addFrame(frameMat, cx) {
+    const t = 0.11;
+    [
+      [DOOR_W+t*2, t,      DOOR_D+0.05, cx,            DOOR_H+t/2,  zPos],
+      [t,          DOOR_H, DOOR_D+0.05, cx-DOOR_W/2-t/2, DOOR_H/2, zPos],
+      [t,          DOOR_H, DOOR_D+0.05, cx+DOOR_W/2+t/2, DOOR_H/2, zPos],
+    ].forEach(([w,h,d,x,y,z]) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), frameMat);
+      m.position.set(x,y,z); scene.add(m);
+    });
+  }
+  addFrame(new THREE.MeshStandardMaterial({color:0x082040,roughness:.85}), -1.7);
+  addFrame(new THREE.MeshStandardMaterial({color:0x4a0a0a,roughness:.85}),  1.7);
+
+  // Signs above doors
+  function addSign(cx, text, color) {
+    const cv = document.createElement('canvas');
+    cv.width = 256; cv.height = 64;
+    const ctx2 = cv.getContext('2d');
+    ctx2.fillStyle = '#000'; ctx2.fillRect(0,0,256,64);
+    ctx2.fillStyle = '#' + color.toString(16).padStart(6,'0');
+    ctx2.font = 'bold 20px Courier New';
+    ctx2.textAlign = 'center'; ctx2.textBaseline = 'middle';
+    ctx2.fillText(text, 128, 32);
+    const sg = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.95, 0.24),
+      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true })
+    );
+    sg.position.set(cx, 2.88, zPos + 0.18); scene.add(sg);
+  }
+  addSign(-1.7, 'NO CHANGE', 0x3377cc);
+  addSign( 1.7, 'ANOMALY',   0xdd2211);
+}
+
+// ── Animate a door opening ────────────────────────────────────
+// Blue swings left (negative Y rot from camera view = inward),
+// Red  swings right (positive Y rot).
+// Called once; the update() loop drives it.
+function startDoorOpenAnim(which, onDone) {
+  if (doorAnimating) return;
+  doorAnimating = true;
+  doorAnim = null;
+
+  // Play creak sound
+  playDoorCreak();
+
+  const hinge = doorHinges[which];
+  // Blue: hinge at right edge, swings into room → negative rotation.y  
+  // Red:  hinge at left  edge, swings into room → positive rotation.y
+  const targetAngle = (which === 'blue') ? -DOOR_OPEN_ANGLE : DOOR_OPEN_ANGLE;
+
+  doorAnim = { hinge, targetAngle, current: 0, speed: 2.8, onDone };
 }
 
 function buildRoomObjects() {
@@ -996,28 +1170,101 @@ function applyAnomaly() {
 }
 
 // ═════════════════════════════════════════════════════════════
-// GHOST JUMPSCARE
+// DOOR INTERACTION  — now triggers open animation first
 // ═════════════════════════════════════════════════════════════
-function triggerGhostJumpscare(onDone) {
-  ghostActive = true;
-  gameActive  = false;
-  document.exitPointerLock();
+function interactDoor() {
+  if (!nearDoor || doorAnimating) return;
+  playClick();
 
-  // Kill flicker
+  const which = nearDoor;
+  nearDoor = null;
+  doorHint.classList.remove('visible');
+  moveF = moveB = moveL = moveR = false; // freeze player during swing
+
+  if (isRefRoom) {
+    captureSnapshot();
+    startDoorOpenAnim(which, () => {
+      // Walk-through flash then load next room
+      doFlash(correctFlash, '#ccbb44', 0.28, 280, () => {
+        level++;
+        levelNum.textContent = level;
+        startChallengeRoom();
+      });
+    });
+    return;
+  }
+
+  const guessedAnomaly = (which === 'red');
+  if (guessedAnomaly === hasAnomaly) {
+    handleCorrect(which);
+  } else {
+    handleWrong(which);
+  }
+}
+
+function handleCorrect(which) {
+  playCorrect();
+  startDoorOpenAnim(which, () => {
+    doFlash(correctFlash, '#00ff88', 0.3, 280, () => {
+      level++;
+      levelNum.textContent = level;
+      startChallengeRoom();
+    });
+  });
+}
+
+function handleWrong(which) {
+  // Step 1: open the door with a creak
+  startDoorOpenAnim(which, () => {
+    // Step 2: brief pause — darkness deepens, then ghost charges out
+    ambientLight.intensity = 0.25;
+    pointLight.intensity   = 0.5;
+
+    setTimeout(() => {
+      spawnGhostCharge(which);
+    }, 320);
+  });
+}
+
+// Spawn 3D ghost at the door, then charge at camera
+function spawnGhostCharge(which) {
+  ghostCharging = true;
+  ghostActive   = true;
+  gameActive    = false;
+  document.exitPointerLock();
   if (flickerIntv) { clearInterval(flickerIntv); flickerIntv = null; }
 
-  // Flash red
-  flash.style.background = '#ff0000'; flash.style.opacity = '0.85';
+  // Play pre-scare audio (low rumble before the main screech)
+  tone(60, 'sawtooth', 0.4, 0.3);
+  tone(40, 'sawtooth', 0.5, 0.25, 0.1);
+
+  // Place ghost just beyond the door opening
+  ghost3D = buildGhost3D();
+  const doorX = (which === 'blue') ? -1.7 : 1.7;
+  ghost3D.position.set(doorX, 1.0, ROOM_D / 2 + 0.5);
+  // Face toward player
+  ghost3D.rotation.y = Math.PI;
+  scene.add(ghost3D);
+  ghostStartPos = ghost3D.position.clone();
+  ghostProgress = 0;
+
+  // Screech fires as ghost starts moving
+  setTimeout(() => { playJumpscare(); }, 80);
+}
+
+// ═════════════════════════════════════════════════════════════
+// GHOST SCREEN OVERLAY  (fires after 3D ghost reaches player)
+// ═════════════════════════════════════════════════════════════
+function showGhostScreenOverlay(onDone) {
+  // Hard red flash
+  flash.style.background = '#ff0000'; flash.style.opacity = '1';
   setTimeout(() => {
-    flash.style.transition = 'opacity 0.4s';
-    flash.style.opacity = '0.0';
-    setTimeout(() => { flash.style.transition = ''; }, 500);
-  }, 80);
+    flash.style.transition = 'opacity 0.5s';
+    flash.style.opacity = '0';
+    setTimeout(() => { flash.style.transition = ''; }, 600);
+  }, 60);
 
-  // Play audio
-  playJumpscare();
-
-  // Show ghost overlay — rebuild children to re-trigger animations
+  // Rebuild overlay HTML to re-trigger CSS animations
   ghostOverlay.innerHTML = `
     <div class="ghost-vignette"></div>
     <div id="ghost-svg-wrap">
@@ -1047,7 +1294,6 @@ function triggerGhostJumpscare(onDone) {
   `;
   ghostOverlay.classList.add('active');
 
-  // Hold ghost for impact, then fade out → show game over
   setTimeout(() => {
     ghostOverlay.style.transition = 'opacity 0.6s';
     ghostOverlay.style.opacity = '0';
@@ -1058,44 +1304,7 @@ function triggerGhostJumpscare(onDone) {
       ghostActive = false;
       if (onDone) onDone();
     }, 650);
-  }, 1800);
-}
-
-// ═════════════════════════════════════════════════════════════
-// DOOR INTERACTION
-// ═════════════════════════════════════════════════════════════
-function interactDoor() {
-  if (!nearDoor) return;
-  playClick();
-
-  if (isRefRoom) {
-    captureSnapshot();
-    doFlash(correctFlash, '#ccbb44', 0.28, 260, () => {
-      level++;
-      levelNum.textContent = level;
-      startChallengeRoom();
-    });
-    return;
-  }
-
-  const guessedAnomaly = (nearDoor === 'red');
-  if (guessedAnomaly === hasAnomaly) handleCorrect();
-  else                                handleWrong();
-}
-
-function handleCorrect() {
-  playCorrect();
-  doFlash(correctFlash, '#00ff88', 0.3, 260, () => {
-    level++;
-    levelNum.textContent = level;
-    startChallengeRoom();
-  });
-}
-
-function handleWrong() {
-  triggerGhostJumpscare(() => {
-    triggerGameOver(false);
-  });
+  }, 1600);
 }
 
 // ═════════════════════════════════════════════════════════════
@@ -1138,11 +1347,56 @@ function doFlash(el, color, opacity, dur, cb) {
 }
 
 // ═════════════════════════════════════════════════════════════
-// MOVEMENT + PROXIMITY
+// MOVEMENT + PROXIMITY + ANIMATION TICK
 // ═════════════════════════════════════════════════════════════
 function update() {
-  if (!gameActive || ghostActive || pauseVisible) return;
   const dt = clock.getDelta();
+
+  // ── Door swing animation ──────────────────────────────────
+  if (doorAnim) {
+    const { hinge, targetAngle, speed } = doorAnim;
+    const diff = targetAngle - doorAnim.current;
+    const step = Math.sign(diff) * Math.min(Math.abs(diff), speed * dt);
+    doorAnim.current += step;
+    hinge.rotation.y = doorAnim.current;
+    if (Math.abs(diff) < 0.01) {
+      hinge.rotation.y = targetAngle;
+      const cb = doorAnim.onDone;
+      doorAnim = null;
+      doorAnimating = false;
+      if (cb) cb();
+    }
+    return; // freeze player movement while door swings
+  }
+
+  // ── 3D Ghost charging ─────────────────────────────────────
+  if (ghostCharging && ghost3D) {
+    ghostProgress += dt * 1.6; // charge speed — reaches player in ~0.6s
+    const t = Math.min(ghostProgress, 1);
+    // Ease in — accelerates toward player
+    const ease = t * t;
+    ghost3D.position.lerpVectors(ghostStartPos, camera.position, ease);
+    // Bob and wobble
+    ghost3D.rotation.y += dt * 3;
+    ghost3D.position.y = ghostStartPos.y + Math.sin(t * Math.PI * 2) * 0.15;
+
+    // Scale up as it gets closer (looming effect)
+    const sc = 0.9 + ease * 1.6;
+    ghost3D.scale.set(sc, sc, sc);
+
+    if (t >= 1) {
+      // Ghost reached player — trigger screen overlay
+      ghostCharging = false;
+      scene.remove(ghost3D);
+      ghost3D = null;
+      showGhostScreenOverlay(() => triggerGameOver(false));
+    }
+    return;
+  }
+
+  if (!gameActive || ghostActive || pauseVisible) return;
+
+  // ── Player movement ───────────────────────────────────────
   const fwd   = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
   const right = new THREE.Vector3( Math.cos(yaw), 0, -Math.sin(yaw));
   velocity.set(0, 0, 0);
@@ -1157,11 +1411,17 @@ function update() {
   camera.position.copy(next);
   camera.position.y = 1.65;
 
-  const bd = camera.position.distanceTo(doors.blue.position);
-  const rd = camera.position.distanceTo(doors.red.position);
+  // ── Door proximity hint ───────────────────────────────────
+  // Use hinge world position for distance check (more stable than mesh)
+  const bPos = new THREE.Vector3(); doorHinges.blue.getWorldPosition(bPos); bPos.x = -1.7;
+  const rPos = new THREE.Vector3(); doorHinges.red.getWorldPosition(rPos);  rPos.x =  1.7;
+  const bPos2 = new THREE.Vector3(-1.7, 1.25, ROOM_D/2 - 0.12);
+  const rPos2 = new THREE.Vector3( 1.7, 1.25, ROOM_D/2 - 0.12);
+  const bd = camera.position.distanceTo(bPos2);
+  const rd = camera.position.distanceTo(rPos2);
   const REACH = 2.4;
 
-  if (bd < REACH || rd < REACH) {
+  if (!doorAnimating && (bd < REACH || rd < REACH)) {
     nearDoor = bd < rd ? 'blue' : 'red';
     if (isRefRoom) {
       doorHint.textContent = 'Press E — ready to continue to the challenge';
@@ -1188,6 +1448,10 @@ function resetCamera() {
 
 function startReferenceRoom() {
   isRefRoom = true;
+  doorAnimating = false;
+  doorAnim = null;
+  ghostCharging = false;
+  ghost3D = null;
   buildRoom();
   resetCamera();
   refBanner.style.display = 'block';
@@ -1196,6 +1460,10 @@ function startReferenceRoom() {
 
 function startChallengeRoom() {
   isRefRoom = false;
+  doorAnimating = false;
+  doorAnim = null;
+  ghostCharging = false;
+  ghost3D = null;
   buildRoom();
   restoreFromSnapshot();
   hasAnomaly = Math.random() < 0.5;
@@ -1214,8 +1482,12 @@ function startGame() {
   startScreen.style.display    = 'none';
   gameoverScreen.style.display = 'none';
   pauseOverlay.classList.remove('active');
-  pauseVisible = false;
-  ghostActive  = false;
+  pauseVisible  = false;
+  ghostActive   = false;
+  ghostCharging = false;
+  doorAnimating = false;
+  doorAnim      = null;
+  ghost3D       = null;
   hud.style.display            = 'flex';
   crosshairEl.style.display    = 'block';
   playAmbience();
