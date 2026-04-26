@@ -707,11 +707,14 @@ let ghostStartPos = null;
 let ghostProgress = 0;
 
 function initThree() {
-  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer = new THREE.WebGLRenderer({ 
+    antialias: false, // Disable antialiasing for better performance
+    powerPreference: "high-performance"
+  });
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.shadowMap.type = THREE.BasicShadowMap; // Faster shadow rendering
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); // Limit pixel ratio
   document.body.insertBefore(renderer.domElement, document.body.firstChild);
   scene  = new THREE.Scene();
   scene.background = new THREE.Color(0x040407);
@@ -929,11 +932,21 @@ pauseQuitBtn.addEventListener('click', () => {
 });
 
 // ── Master objects ────────────────────────────────────────────
-// ── Master objects (3 GLB models for easy mode) ──────────────
+// ── Master objects (10 GLB models: 3 for easy, 6 for medium, 10 for hard) ──────────────
 const MASTER_OBJECTS = [
+  // First 3 for easy mode
   { model: 'torture_chair.glb', pos: [-3.2, 0.0, -4.0], scale: 0.9, label: 'torture chair' },
   { model: 'ornate_ouija_board_and_planchette.glb', pos: [3.0, 0.0, -2.5], scale: 0.01, label: 'Ouija board' },
   { model: 'old_bathroom_cabinet_with_weathered_wood_texture.glb', pos: [0.0, 0.0, -5.5], scale: 0.6, label: 'bathroom cabinet' },
+  // Next 3 for medium mode (total 6)
+  { model: 'hello_neighbor__mantrap.glb', pos: [-4.0, 0.0, 2.0], scale: 0.016, label: 'mantrap' },
+  { model: 'spider.glb', pos: [2.5, 0.0, 3.0], scale: 0.01, label: 'spider', animated: true },
+  { model: 'old_bible.glb', pos: [3.5, 0.0, -5.0], scale: 0.5, label: 'old bible' },
+  // Additional 4 for hard mode (total 10) - duplicates with different positions
+  { model: 'torture_chair.glb', pos: [4.2, 0.0, 1.5], scale: 0.9, label: 'torture chair 2' },
+  { model: 'ornate_ouija_board_and_planchette.glb', pos: [-2.5, 0.0, 4.0], scale: 0.01, label: 'Ouija board 2' },
+  { model: 'hello_neighbor__mantrap.glb', pos: [1.0, 0.0, -3.5], scale: 0.016, label: 'mantrap 2' },
+  { model: 'old_bible.glb', pos: [-3.8, 0.0, -2.0], scale: 0.5, label: 'old bible 2' },
 ];
 
 let ambientLight, pointLight;
@@ -961,6 +974,10 @@ function buildRoom() {
     // onLoad callback
     function(texture) {
       console.log('Horror wall texture loaded successfully');
+      // Optimize texture for performance
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.generateMipmaps = false;
     },
     // onProgress callback
     undefined,
@@ -974,7 +991,11 @@ function buildRoom() {
   wallTexture.repeat.set(1, 1); // One image per wall (stretched)
   
   // Load same texture for ceiling
-  const ceilTexture = textureLoader.load('horror%20wall.jpg');
+  const ceilTexture = textureLoader.load('horror%20wall.jpg', function(texture) {
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
+  });
   ceilTexture.wrapS = THREE.RepeatWrapping;
   ceilTexture.wrapT = THREE.RepeatWrapping;
   ceilTexture.repeat.set(1, 1);
@@ -983,18 +1004,22 @@ function buildRoom() {
     new THREE.PlaneGeometry(ROOM_W, ROOM_D), 
     new THREE.MeshStandardMaterial({ 
       map: ceilTexture,
-      color: 0x888888,
+      color: 0xffffff, // White to show texture at full brightness
       roughness: 0.92,
-      metalness: 0
+      metalness: 0,
+      emissive: 0x111111,
+      emissiveIntensity: 0.15
     })
   );
   ceil.rotation.x = Math.PI / 2; ceil.position.y = ROOM_H; ceil.receiveShadow = true; scene.add(ceil);
   
   const wallMat = new THREE.MeshStandardMaterial({ 
     map: wallTexture,
-    color: 0x888888, // Fallback gray color if texture doesn't load
+    color: 0xffffff, // White color to show texture at full brightness
     roughness: 0.92,
-    metalness: 0
+    metalness: 0,
+    emissive: 0x222222, // Add slight glow to walls
+    emissiveIntensity: 0.2
   });
   
   [
@@ -1013,15 +1038,17 @@ function buildRoom() {
     s.position.set(x, 0.09, 0); scene.add(s);
   });
 
-  ambientLight = new THREE.AmbientLight(0x090812, 1.3); scene.add(ambientLight);
-  pointLight   = new THREE.PointLight(0xffe0b0, 2.0, 20);
+  ambientLight = new THREE.AmbientLight(0x090812, 2.5); scene.add(ambientLight); // Increased from 1.3 to 2.5
+  pointLight   = new THREE.PointLight(0xffe0b0, 3.5, 20); // Increased from 2.0 to 3.5
   pointLight.position.set(0, ROOM_H - 0.35, 0);
   pointLight.castShadow = true;
-  pointLight.shadow.mapSize.set(512, 512);
+  pointLight.shadow.mapSize.set(256, 256); // Reduced from 512 for better performance
+  pointLight.shadow.camera.near = 0.5;
+  pointLight.shadow.camera.far = 15;
   scene.add(pointLight);
-  const fill = new THREE.PointLight(0x35000a, 0.7, 12);
+  const fill = new THREE.PointLight(0x35000a, 1.2, 12); // Increased from 0.7 to 1.2
   fill.position.set(0, 1.4, ROOM_D/2 - 1.2); scene.add(fill);
-  const backFill = new THREE.PointLight(0x051520, 0.5, 8);
+  const backFill = new THREE.PointLight(0x051520, 1.0, 8); // Increased from 0.5 to 1.0
   backFill.position.set(-ROOM_W/2 + 1, 1.5, -ROOM_D/2 + 1); scene.add(backFill);
 
   const pipeMat = mat(0x1e1e1e, 0.7, 0.6);
@@ -1053,7 +1080,12 @@ function buildDoors() {
   */
   const zPos = ROOM_D / 2 - 0.12;
 
-  function makeDoor(color, emissive, centerX, hingeSide) {
+  // Load door textures
+  const textureLoader = new THREE.TextureLoader();
+  const redDoorTexture = textureLoader.load('red_door.png');
+  const blueDoorTexture = textureLoader.load('blue_door.png');
+
+  function makeDoor(texture, emissive, centerX, hingeSide) {
     // hingeSide: +1 = right edge is hinge, -1 = left edge is hinge
     const hinge = new THREE.Object3D();
     // Pivot sits at the hinge edge of the door in world space
@@ -1062,7 +1094,12 @@ function buildDoors() {
 
     const mesh = new THREE.Mesh(
       new THREE.BoxGeometry(DOOR_W, DOOR_H, DOOR_D),
-      new THREE.MeshStandardMaterial({ color, roughness: 0.5, emissive, emissiveIntensity: 0.4 })
+      new THREE.MeshStandardMaterial({ 
+        map: texture,
+        roughness: 0.7, 
+        emissive: emissive, 
+        emissiveIntensity: 0.2 
+      })
     );
     // Offset mesh so its hinge edge aligns with hinge pivot (local origin)
     mesh.position.set(-hingeSide * DOOR_W / 2, DOOR_H / 2, 0);
@@ -1072,7 +1109,7 @@ function buildDoors() {
     // Knob on door mesh
     const knob = new THREE.Mesh(
       new THREE.SphereGeometry(0.055, 8, 8),
-      new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.15, metalness: 0.9 })
+      new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.15, metalness: 0.9 })
     );
     // Knob on the free-swinging side, at handle height
     knob.position.set(hingeSide * (DOOR_W / 2 - 0.14), 1.0 - DOOR_H / 2, DOOR_D / 2 + 0.01);
@@ -1081,8 +1118,8 @@ function buildDoors() {
     return { hinge, mesh };
   }
 
-  const blueD = makeDoor(0x0d4080, 0x001025, -1.7, +1);
-  const redD  = makeDoor(0x7a0e0e, 0x1e0000,  1.7, -1);
+  const blueD = makeDoor(blueDoorTexture, 0x001025, -1.7, +1);
+  const redD  = makeDoor(redDoorTexture, 0x1e0000,  1.7, -1);
 
   doorHinges.blue = blueD.hinge;
   doorHinges.red  = redD.hinge;
@@ -1105,8 +1142,8 @@ function buildDoors() {
       m.position.set(x,y,z); scene.add(m);
     });
   }
-  addFrame(new THREE.MeshStandardMaterial({color:0x082040,roughness:.85}), -1.7);
-  addFrame(new THREE.MeshStandardMaterial({color:0x4a0a0a,roughness:.85}),  1.7);
+  addFrame(new THREE.MeshStandardMaterial({color:0x1a1a1a,roughness:.85}), -1.7);
+  addFrame(new THREE.MeshStandardMaterial({color:0x1a1a1a,roughness:.85}),  1.7);
 
   // Signs above doors
   function addSign(cx, text, color) {
@@ -1150,8 +1187,11 @@ function startDoorOpenAnim(which, onDone) {
 
 function buildRoomObjects() {
   const count = DIFF_COUNTS[difficulty];
+  console.log(`Building ${count} objects for ${difficulty} mode`);
+  console.log('Available models in cache:', Object.keys(modelCache));
   
   MASTER_OBJECTS.slice(0, count).forEach((def, i) => {
+    console.log(`Attempting to add object ${i}: ${def.label} (${def.model})`);
     // Use cached/preloaded model
     if (modelCache[def.model]) {
       const model = modelCache[def.model].clone();
@@ -1162,7 +1202,9 @@ function buildRoomObjects() {
         basePos: model.position.clone(), 
         baseScale: model.scale.clone(),
         label: def.label, 
-        modelFile: def.model 
+        modelFile: def.model,
+        animated: def.animated || false,
+        animTime: 0
       };
       
       // Clean up the model - only show the main object
@@ -1182,6 +1224,26 @@ function buildRoomObjects() {
               childName.includes('room') ||
               childName.includes('environment')) {
             child.visible = false;
+          }
+          
+          // Special handling for axe - hide large planes and background
+          if (def.model.includes('axe')) {
+            if (child.geometry) {
+              child.geometry.computeBoundingSphere();
+              const radius = child.geometry.boundingSphere.radius;
+              
+              // Hide very large meshes (background/scene elements)
+              if (radius > 100) {
+                console.log('Hiding large axe mesh:', child.name, 'radius:', radius);
+                child.visible = false;
+              }
+              
+              // Also hide if it's a PlaneGeometry or very flat
+              if (child.geometry.type === 'PlaneGeometry' || child.geometry.type === 'PlaneBufferGeometry') {
+                console.log('Hiding plane geometry in axe:', child.name);
+                child.visible = false;
+              }
+            }
           }
         }
       });
@@ -1241,11 +1303,53 @@ const ANOMALY_TYPES = ['move', 'remove', 'add', 'rotate'];
 function applyAnomaly() {
   const type = ANOMALY_TYPES[Math.floor(Math.random() * ANOMALY_TYPES.length)];
   const visible = roomObjects.filter(o => o.visible);
+  
+  // Filter out spider from move/rotate anomalies (it's always moving)
+  const nonAnimated = visible.filter(o => !o.userData.animated);
+  
+  // Filter out circular objects (mantrap) from rotation - impossible to detect
+  const rotatableObjects = nonAnimated.filter(o => !o.userData.label.includes('mantrap'));
+  
+  // Easy mode: make anomalies more obvious
+  const isEasy = difficulty === 'easy';
+  const isHard = difficulty === 'hard';
+  
   switch (type) {
     case 'move': {
-      const obj = visible[Math.floor(Math.random() * visible.length)];
-      let nx = obj.position.x + (Math.random() - 0.5) * 3.0;
-      let nz = obj.position.z + (Math.random() - 0.5) * 3.0;
+      // Don't move spider - it's already animated
+      if (nonAnimated.length === 0) {
+        // Fallback to remove if no non-animated objects
+        const obj = visible[Math.floor(Math.random() * visible.length)];
+        obj.visible = false;
+        anomalyDesc = `"${obj.userData.label}" has disappeared.`;
+        break;
+      }
+      
+      // Hard mode: move multiple objects (2-3 objects)
+      if (isHard && nonAnimated.length >= 2 && Math.random() < 0.5) {
+        const numToMove = Math.min(2 + Math.floor(Math.random() * 2), nonAnimated.length);
+        const shuffled = [...nonAnimated].sort(() => Math.random() - 0.5);
+        const objectsToMove = shuffled.slice(0, numToMove);
+        
+        objectsToMove.forEach(obj => {
+          let nx = obj.position.x + (Math.random() - 0.5) * 3.0;
+          let nz = obj.position.z + (Math.random() - 0.5) * 3.0;
+          nx = Math.max(-ROOM_W/2 + 0.7, Math.min(ROOM_W/2 - 0.7, nx));
+          nz = Math.max(-ROOM_D/2 + 0.7, Math.min(ROOM_D/2 - 2.0, nz));
+          obj.position.x = nx; obj.position.z = nz;
+        });
+        
+        const labels = objectsToMove.map(o => `"${o.userData.label}"`).join(', ');
+        anomalyDesc = `Multiple objects have moved: ${labels}.`;
+        break;
+      }
+      
+      // Normal single object move
+      const obj = nonAnimated[Math.floor(Math.random() * nonAnimated.length)];
+      // Easy mode: move objects much further (more obvious)
+      const moveDistance = isEasy ? 5.0 : 3.0;
+      let nx = obj.position.x + (Math.random() - 0.5) * moveDistance;
+      let nz = obj.position.z + (Math.random() - 0.5) * moveDistance;
       nx = Math.max(-ROOM_W/2 + 0.7, Math.min(ROOM_W/2 - 0.7, nx));
       nz = Math.max(-ROOM_D/2 + 0.7, Math.min(ROOM_D/2 - 2.0, nz));
       obj.position.x = nx; obj.position.z = nz;
@@ -1253,12 +1357,23 @@ function applyAnomaly() {
       break;
     }
     case 'rotate': {
-      const obj = visible[Math.floor(Math.random() * visible.length)];
-      obj.rotation.y += Math.PI / 2 + (Math.random() - 0.5) * 0.5;
+      // Don't rotate spider or circular objects (mantrap)
+      if (rotatableObjects.length === 0) {
+        // Fallback to remove if no rotatable objects
+        const obj = visible[Math.floor(Math.random() * visible.length)];
+        obj.visible = false;
+        anomalyDesc = `"${obj.userData.label}" has disappeared.`;
+        break;
+      }
+      const obj = rotatableObjects[Math.floor(Math.random() * rotatableObjects.length)];
+      // Easy mode: rotate 180 degrees (very obvious), harder modes: 90 degrees
+      const rotationAmount = isEasy ? Math.PI : (Math.PI / 2 + (Math.random() - 0.5) * 0.5);
+      obj.rotation.y += rotationAmount;
       anomalyDesc = `"${obj.userData.label}" has been rotated.`;
       break;
     }
     case 'remove': {
+      // Spider can disappear - that's a valid anomaly
       const obj = visible[Math.floor(Math.random() * visible.length)];
       obj.visible = false;
       anomalyDesc = `"${obj.userData.label}" has disappeared.`;
@@ -1587,6 +1702,25 @@ function update() {
 
   if (!gameActive || ghostActive || pauseVisible) return;
 
+  // ── Animate spider (slow crawling motion) ─────────────────
+  roomObjects.forEach(obj => {
+    if (obj.userData.animated && obj.userData.label === 'spider') {
+      obj.userData.animTime += dt * 0.3; // Slow animation speed
+      const t = obj.userData.animTime;
+      
+      // Slow circular crawling motion
+      const radius = 0.4;
+      obj.position.x = obj.userData.basePos.x + Math.cos(t) * radius;
+      obj.position.z = obj.userData.basePos.z + Math.sin(t) * radius;
+      
+      // Rotate spider to face movement direction
+      obj.rotation.y = t + Math.PI / 2;
+      
+      // Keep spider on floor with subtle walking bob (very small)
+      obj.position.y = 0.02 + Math.abs(Math.sin(t * 8)) * 0.01; // Faster leg-like bobbing, stays near floor
+    }
+  });
+
   // ── Player movement ───────────────────────────────────────
   const fwd   = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
   const right = new THREE.Vector3( Math.cos(yaw), 0, -Math.sin(yaw));
@@ -1685,7 +1819,10 @@ function preloadAllModels(callback) {
     'hantu_kyunti.glb',
     'torture_chair.glb',
     'ornate_ouija_board_and_planchette.glb',
-    'old_bathroom_cabinet_with_weathered_wood_texture.glb'
+    'old_bathroom_cabinet_with_weathered_wood_texture.glb',
+    'hello_neighbor__mantrap.glb',
+    'spider.glb',
+    'old_bible.glb'
   ];
   
   let loaded = 0;
@@ -1699,6 +1836,28 @@ function preloadAllModels(callback) {
     loader.load(
       modelPath,
       (gltf) => {
+        // Optimize model for performance
+        gltf.scene.traverse((child) => {
+          if (child.isMesh) {
+            // Disable shadow casting/receiving for better performance
+            child.castShadow = false;
+            child.receiveShadow = false;
+            
+            // Brighten materials so objects are visible
+            if (child.material) {
+              child.material.flatShading = false; // Keep smooth shading
+              child.material.emissive = new THREE.Color(0x222222); // Add slight glow
+              child.material.emissiveIntensity = 0.3;
+              child.material.needsUpdate = true;
+            }
+            
+            // Simplify geometry if possible
+            if (child.geometry) {
+              child.geometry.computeBoundingSphere();
+            }
+          }
+        });
+        
         modelCache[modelPath] = gltf.scene;
         if (modelPath === 'hantu_kyunti.glb') {
           ghostModelCache = gltf.scene;
@@ -1773,8 +1932,19 @@ function goToMainMenu() {
 // ═════════════════════════════════════════════════════════════
 // RENDER LOOP
 // ═════════════════════════════════════════════════════════════
-function animate() {
+let lastFrameTime = 0;
+const targetFPS = 60;
+const frameInterval = 1000 / targetFPS;
+
+function animate(currentTime = 0) {
   requestAnimationFrame(animate);
+  
+  // Throttle frame rate for consistent performance
+  const elapsed = currentTime - lastFrameTime;
+  if (elapsed < frameInterval) return;
+  
+  lastFrameTime = currentTime - (elapsed % frameInterval);
+  
   update();
   renderer.render(scene, camera);
 }
