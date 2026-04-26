@@ -389,6 +389,14 @@
 </head>
 <body>
 
+<!-- Background Music -->
+<audio id="menu-music" loop preload="auto">
+  <source src="Empty%20Hallway.mp3" type="audio/mpeg">
+</audio>
+<audio id="game-music" loop preload="auto">
+  <source src="Empty%20Hall%20Loop.mp3" type="audio/mpeg">
+</audio>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
@@ -763,6 +771,78 @@ function setupKeys() {
 let difficulty  = null;
 let level       = 1;
 let isRefRoom   = true;
+
+// ── Audio ─────────────────────────────────────────────────────
+let menuMusic = null;
+let gameMusic = null;
+
+function initAudio() {
+  menuMusic = document.getElementById('menu-music');
+  gameMusic = document.getElementById('game-music');
+
+  console.log('Menu music element:', menuMusic);
+  console.log('Game music element:', gameMusic);
+
+  // Test if files can load
+  if (menuMusic) {
+    menuMusic.addEventListener('loadeddata', () => {
+      console.log('✓ Menu music file loaded successfully');
+    });
+    menuMusic.addEventListener('error', (e) => {
+      console.error('✗ Menu music load error:', e);
+    });
+  }
+
+  if (gameMusic) {
+    gameMusic.addEventListener('loadeddata', () => {
+      console.log('✓ Game music file loaded successfully');
+    });
+    gameMusic.addEventListener('error', (e) => {
+      console.error('✗ Game music load error:', e);
+    });
+  }
+}
+
+function playMenuMusic() {
+  if (!menuMusic) {
+    console.error('Menu music element not found!');
+    return;
+  }
+  if (gameMusic) {
+    gameMusic.pause();
+    gameMusic.currentTime = 0;
+  }
+  menuMusic.volume = 0.5;
+  console.log('Attempting to play menu music...');
+  menuMusic.play().then(() => {
+    console.log('✓ Menu music playing');
+  }).catch(e => {
+    console.error('Menu music play error:', e);
+  });
+}
+
+function playGameMusic() {
+  if (!gameMusic) {
+    console.error('Game music element not found!');
+    return;
+  }
+  if (menuMusic) {
+    menuMusic.pause();
+    menuMusic.currentTime = 0;
+  }
+  gameMusic.volume = 0.5;
+  console.log('Attempting to play game music...');
+  gameMusic.play().then(() => {
+    console.log('✓ Game music playing');
+  }).catch(e => {
+    console.error('Game music play error:', e);
+  });
+}
+
+function stopAllMusic() {
+  if (menuMusic) menuMusic.pause();
+  if (gameMusic) gameMusic.pause();
+}
 let hasAnomaly  = false;
 let gameActive  = false;
 let ghostActive = false;
@@ -1622,6 +1702,7 @@ function startGame() {
   hud.style.display            = 'flex';
   crosshairEl.style.display    = 'block';
   playAmbience();
+  playGameMusic(); // Start game music
   startReferenceRoom();
   renderer.domElement.requestPointerLock();
 }
@@ -1632,6 +1713,7 @@ function goToMainMenu() {
   pauseVisible = false;
   document.exitPointerLock();
   gameoverScreen.style.display = 'none';
+  playMenuMusic(); // Return to menu music
   pauseOverlay.classList.remove('active');
   hud.style.display = 'none';
   crosshairEl.style.display = 'none';
@@ -1655,10 +1737,31 @@ initThree();
 setupPointerLock();
 setupKeys();
 animate();
+initAudio(); // Initialize audio elements
 
 // Preload models on page load
 preloadAllModels(() => {
   console.log('Ready to start game!');
+});
+
+// Start menu music when user interacts with page
+let audioInitialized = false;
+document.addEventListener('click', () => {
+  if (!audioInitialized) {
+    audioInitialized = true;
+    playMenuMusic();
+    console.log('Audio initialized on user click');
+  }
+});
+
+// Also try on difficulty button click
+document.querySelectorAll('.diff-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!audioInitialized) {
+      audioInitialized = true;
+      playMenuMusic();
+    }
+  });
 });
 
 startBtn.addEventListener('click', () => { 
