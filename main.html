@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Endless Rooms</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Special+Elite&display=swap');
+    
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 
     body {
@@ -26,110 +28,215 @@
     }
 
     /* ── START SCREEN ── */
-    #start-screen { 
-      background: #000 url('horror_bg.png') center center / cover no-repeat;
+    #start-screen {
+      background: #000 url('horror_bg_enhanced.png') center center / cover no-repeat;
+      justify-content: center;
+      align-items: center;
     }
-
+    
+    /* Menu container */
+    #menu-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: min(660px, 92vw);
+      padding: 3em 3.8em 2.5em;
+      background: rgba(4, 0, 0, 0.82);
+      border: 1px solid rgba(100, 15, 15, 0.55);
+      box-shadow: inset 0 0 80px rgba(80, 0, 0, 0.08), 0 0 60px rgba(0, 0, 0, 0.8);
+    }
+    
+    #menu-card::before {
+      content: '';
+      position: absolute;
+      inset: 4px;
+      border: 1px solid rgba(80, 10, 10, 0.18);
+      pointer-events: none;
+    }
+    
+    /* Title section */
+    .menu-title-wrap { 
+      text-align: center; 
+      margin-bottom: 0;
+      width: 100%;
+    }
+    
+    .title-eyebrow {
+      display: block;
+      font-size: clamp(.5rem, 1.2vw, .62rem);
+      letter-spacing: .65em;
+      text-transform: uppercase;
+      color: rgba(200, 180, 180, 0.75);
+      margin-bottom: 1em;
+    }
+    
     .title {
-      font-size:clamp(2.4rem,8vw,5rem);
-      letter-spacing:.45em;
-      text-transform:uppercase;
-      color:#ff3333;
-      text-shadow:0 0 40px #ff0000, 0 0 80px #ff0000, 2px 2px 4px rgba(0,0,0,0.8);
-      animation:flicker-title 5s infinite;
-      margin-bottom:.25em;
+      font-family: 'Special Elite', 'Courier New', monospace;
+      font-size: clamp(2rem, 5vw, 3rem);
+      letter-spacing: .55em;
+      text-transform: uppercase;
+      color: #b83030;
+      text-shadow: 0 0 40px rgba(160, 30, 30, 0.25);
+      line-height: 1.25;
+      margin: 0;
+      font-weight: normal;
     }
+    
     .subtitle {
-      font-size:clamp(.65rem,2vw,.95rem);
-      letter-spacing:.35em;
-      color:#cccccc;
-      text-shadow:1px 1px 2px rgba(0,0,0,0.8);
-      margin-bottom:2.5em;
+      font-size: clamp(.62rem, 1.3vw, .75rem);
+      letter-spacing: .42em;
+      color: rgba(200, 180, 180, 0.7);
+      margin-top: .9em;
     }
+    
+    /* Blood divider */
+    .blood-divider {
+      position: relative;
+      width: 100%;
+      height: 1px;
+      margin: 1.6em 0;
+      background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(100, 15, 15, 0.35) 25%,
+        rgba(120, 18, 18, 0.5) 50%,
+        rgba(100, 15, 15, 0.35) 75%,
+        transparent 100%);
+    }
+    
+    .blood-divider::after {
+      content: '—';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-size: .62rem;
+      color: rgba(110, 30, 30, 0.55);
+      background: rgba(4, 0, 0, 0.82);
+      padding: 0 1em;
+      letter-spacing: .15em;
+    }
+    
+    /* Instructions box */
     .instructions-box {
-      border:1px solid #444;
-      padding:1.3em 2.2em;
-      margin-bottom:2em;
-      background:rgba(0,0,0,0.8);
-      line-height:2.1;
-      font-size:.82rem;
-      color:#ddd;
-      max-width:460px;
-      text-align:center;
-      backdrop-filter:blur(2px);
+      position: relative;
+      border: 1px solid rgba(90, 20, 20, 0.3);
+      padding: 1.4em 2em;
+      margin-bottom: 1.8em;
+      background: rgba(0, 0, 0, 0.4);
+      line-height: 2.1;
+      font-size: clamp(.72rem, 1.6vw, .85rem);
+      color: rgba(220, 200, 200, 0.85);
+      width: 100%;
+      text-align: center;
+      letter-spacing: .06em;
     }
-    .instructions-box .k  { color:#e55; }
-    .instructions-box .bd { color:#4af; }
-    .instructions-box .rd { color:#f44; }
-    .instructions-box .hl { color:#cc9; }
-
+    
+    .instructions-box::before {
+      content: '';
+      position: absolute;
+      inset: 3px;
+      border: 1px solid rgba(70, 10, 10, 0.12);
+      pointer-events: none;
+    }
+    
+    .instructions-box .k  { color: #cc4444; font-weight: bold; }
+    .instructions-box .bd { color: #4a88b8; }
+    .instructions-box .rd { color: #b83030; }
+    .instructions-box .hl { color: #b09040; }
+    
+    /* Difficulty label */
     .diff-label {
-      font-size:.68rem;
-      letter-spacing:.35em;
-      color:#ccc;
-      text-shadow:1px 1px 2px rgba(0,0,0,0.8);
-      text-transform:uppercase;
-      margin-bottom:.85em;
+      font-size: .68rem;
+      letter-spacing: .55em;
+      color: rgba(180, 140, 140, 0.75);
+      text-transform: uppercase;
+      margin-bottom: .95em;
+      text-align: center;
     }
+    
     .diff-row {
-      display:flex;
-      gap:.9em;
-      margin-bottom:2.2em;
+      display: flex;
+      gap: .8em;
+      margin-bottom: 1.8em;
+      width: 100%;
     }
+    
     .diff-btn {
-      background:rgba(0,0,0,0.7);
-      border:1px solid #555;
-      color:#ccc;
-      font-family:'Courier New',monospace;
-      font-size:.78rem;
-      letter-spacing:.25em;
-      padding:.65em 1.5em;
-      cursor:pointer;
-      text-transform:uppercase;
-      transition:all .18s;
-      line-height:1;
-      backdrop-filter:blur(2px);
+      flex: 1;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(70, 70, 70, 0.35);
+      color: rgba(200, 180, 180, 0.85);
+      font-family: 'Courier New', monospace;
+      font-size: .75rem;
+      letter-spacing: .22em;
+      padding: .9em .4em .75em;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: border-color .2s, color .2s, background .2s;
+      line-height: 1;
+      text-align: center;
     }
+    
     .diff-btn .obj-count {
-      display:block;
-      font-size:.58rem;
-      letter-spacing:.15em;
-      margin-top:.4em;
-      opacity:.7;
+      display: block;
+      font-size: .6rem;
+      letter-spacing: .1em;
+      margin-top: .4em;
+      opacity: .65;
     }
-    .diff-btn.easy   { --accent:#44aa66; }
-    .diff-btn.medium { --accent:#cc9922; }
-    .diff-btn.hard   { --accent:#cc2222; }
-    .diff-btn:hover  { border-color:#777; color:#fff; background:rgba(0,0,0,0.8); }
+    
+    .diff-btn.easy   { --ac: #3d9958; --ab: rgba(10, 40, 15, 0.45); }
+    .diff-btn.medium { --ac: #b08a22; --ab: rgba(50, 38, 5, 0.45); }
+    .diff-btn.hard   { --ac: #b82828; --ab: rgba(55, 5, 5, 0.45); }
+    
+    .diff-btn:hover {
+      border-color: rgba(110, 35, 35, 0.6);
+      color: rgba(240, 220, 220, 1);
+      background: rgba(15, 2, 2, 0.65);
+    }
+    
     .diff-btn.active {
-      border-color:var(--accent);
-      color:var(--accent);
-      background:rgba(0,0,0,0.9);
-      box-shadow:0 0 14px color-mix(in srgb, var(--accent) 35%, transparent);
+      border-color: var(--ac);
+      color: var(--ac);
+      background: var(--ab);
     }
-
+    
+    /* Enter button */
     .start-btn {
-      background:rgba(0,0,0,0.8);
-      border:1px solid #c00;
-      color:#c00;
-      font-family:'Courier New',monospace;
-      font-size:.95rem;
-      letter-spacing:.35em;
-      padding:.75em 2.5em;
-      cursor:pointer;
-      text-transform:uppercase;
-      transition:all .2s;
-      backdrop-filter:blur(2px);
+      background: rgba(40, 6, 6, 0.55);
+      border: 1px solid rgba(120, 25, 25, 0.6);
+      color: rgba(185, 45, 45, 0.9);
+      font-family: 'Courier New', monospace;
+      font-size: clamp(.7rem, 1.6vw, .82rem);
+      letter-spacing: .55em;
+      padding: .9em 2em;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: background .25s, color .25s, border-color .25s, letter-spacing .25s;
+      width: 100%;
     }
-    .start-btn:hover  { background:#c00; color:#000; box-shadow:0 0 20px #f00; }
-    .start-btn:disabled { opacity:.28; cursor:default; pointer-events:none; }
-
+    
+    .start-btn:hover:not(:disabled) {
+      background: rgba(65, 10, 10, 0.75);
+      color: rgba(220, 60, 60, 1);
+      border-color: rgba(170, 35, 35, 0.85);
+      letter-spacing: .65em;
+    }
+    
+    .start-btn:disabled { 
+      opacity: .25; 
+      cursor: default; 
+      pointer-events: none; 
+    }
+    
+    /* Warning */
     .warning {
-      margin-top:1.8em;
-      font-size:.63rem;
-      color:#aaa;
-      text-shadow:1px 1px 2px rgba(0,0,0,0.8);
-      letter-spacing:.2em;
+      margin-top: 1.4em;
+      font-size: .64rem;
+      color: rgba(180, 150, 150, 0.65);
+      letter-spacing: .3em;
+      text-align: center;
     }
 
     /* ── MUTE BUTTON ── */
@@ -434,33 +541,32 @@
 <!-- START SCREEN -->
 <div id="start-screen" class="screen">
   <button class="mute-btn" id="mute-btn-menu">🔊 Sound</button>
-  <div class="title">Endless Rooms</div>
-  <div class="subtitle">something is wrong &nbsp;·&nbsp; find what changed</div>
-  <div class="instructions-box">
-    <span class="k">WASD</span> move &nbsp;·&nbsp; <span class="k">MOUSE</span> look &nbsp;·&nbsp; <span class="k">E</span> interact with door<br>
-    <span class="k">ESC</span> pause / quit<br><br>
-    <span class="bd">Blue door</span> &nbsp;→&nbsp; Nothing changed<br>
-    <span class="rd">Red door</span> &nbsp;&nbsp;→&nbsp; Anomaly is present<br><br>
-    <span class="hl">Room 1</span> is always the <span class="hl">Reference Room</span>.<br>
-    Memorise every object carefully.<br>
-    From Room 2 onward, one thing may have changed.
+  <div id="menu-card">
+    <div class="menu-title-wrap">
+      <span class="title-eyebrow">☠ &nbsp; a place you cannot leave &nbsp; ☠</span>
+      <div class="title">ENDLESS<br>ROOMS</div>
+      <div class="subtitle">something is wrong &nbsp;·&nbsp; find what changed</div>
+    </div>
+    
+    <div class="blood-divider"></div>
+    
+    <div class="instructions-box">
+      <span class="k">WASD</span> move &nbsp;·&nbsp; <span class="k">MOUSE</span> look &nbsp;·&nbsp; <span class="k">E</span> interact<br><br>
+      <span class="bd">Blue door</span> &nbsp;→&nbsp; Nothing changed &nbsp;&nbsp;&nbsp; <span class="rd">Red door</span> &nbsp;→&nbsp; Anomaly<br><br>
+      <span class="hl">Room 1</span> is the <span class="hl">Reference Room</span> — memorise everything.<br>
+      From Room 2 onward, one thing may have changed.
+    </div>
+    
+    <div class="diff-label">— &nbsp; choose your fate &nbsp; —</div>
+    <div class="diff-row">
+      <button class="diff-btn easy"   data-diff="easy">Easy<span class="obj-count">3 objects</span></button>
+      <button class="diff-btn medium" data-diff="medium">Medium<span class="obj-count">6 objects</span></button>
+      <button class="diff-btn hard"   data-diff="hard">Hard<span class="obj-count">10 objects</span></button>
+    </div>
+    
+    <button class="start-btn" id="start-btn" disabled>Choose a difficulty</button>
+    <div class="warning">⚠ &nbsp; Headphones recommended &nbsp; ⚠</div>
   </div>
-
-  <div class="diff-label">Select difficulty</div>
-  <div class="diff-row">
-    <button class="diff-btn easy"   data-diff="easy">Easy
-      <span class="obj-count">3 objects</span>
-    </button>
-    <button class="diff-btn medium" data-diff="medium">Medium
-      <span class="obj-count">6 objects</span>
-    </button>
-    <button class="diff-btn hard"   data-diff="hard">Hard
-      <span class="obj-count">10 objects</span>
-    </button>
-  </div>
-
-  <button class="start-btn" id="start-btn" disabled>Choose a difficulty</button>
-  <div class="warning">⚠ &nbsp; Headphones recommended &nbsp; ⚠</div>
 </div>
 
 <!-- REFERENCE BANNER -->
@@ -2276,7 +2382,7 @@ document.getElementById('mute-btn-menu').addEventListener('click', () => {
 });
 
 document.getElementById('mute-btn-pause').addEventListener('click', () => {
-  playClick();
+  playClick(); 
   toggleMute();
 });
 </script>
