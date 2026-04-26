@@ -26,33 +26,37 @@
     }
 
     /* ── START SCREEN ── */
-    #start-screen { background:#000; }
+    #start-screen { 
+      background: #000 url('horror_bg.png') center center / cover no-repeat;
+    }
 
     .title {
       font-size:clamp(2.4rem,8vw,5rem);
       letter-spacing:.45em;
       text-transform:uppercase;
-      color:#c00;
-      text-shadow:0 0 40px #f00, 0 0 80px #900;
+      color:#ff3333;
+      text-shadow:0 0 40px #ff0000, 0 0 80px #ff0000, 2px 2px 4px rgba(0,0,0,0.8);
       animation:flicker-title 5s infinite;
       margin-bottom:.25em;
     }
     .subtitle {
       font-size:clamp(.65rem,2vw,.95rem);
       letter-spacing:.35em;
-      color:#555;
+      color:#cccccc;
+      text-shadow:1px 1px 2px rgba(0,0,0,0.8);
       margin-bottom:2.5em;
     }
     .instructions-box {
-      border:1px solid #2a2a2a;
+      border:1px solid #444;
       padding:1.3em 2.2em;
       margin-bottom:2em;
-      background:rgba(255,0,0,.03);
+      background:rgba(0,0,0,0.8);
       line-height:2.1;
       font-size:.82rem;
-      color:#888;
+      color:#ddd;
       max-width:460px;
       text-align:center;
+      backdrop-filter:blur(2px);
     }
     .instructions-box .k  { color:#e55; }
     .instructions-box .bd { color:#4af; }
@@ -62,7 +66,8 @@
     .diff-label {
       font-size:.68rem;
       letter-spacing:.35em;
-      color:#444;
+      color:#ccc;
+      text-shadow:1px 1px 2px rgba(0,0,0,0.8);
       text-transform:uppercase;
       margin-bottom:.85em;
     }
@@ -72,9 +77,9 @@
       margin-bottom:2.2em;
     }
     .diff-btn {
-      background:none;
-      border:1px solid #333;
-      color:#666;
+      background:rgba(0,0,0,0.7);
+      border:1px solid #555;
+      color:#ccc;
       font-family:'Courier New',monospace;
       font-size:.78rem;
       letter-spacing:.25em;
@@ -83,26 +88,28 @@
       text-transform:uppercase;
       transition:all .18s;
       line-height:1;
+      backdrop-filter:blur(2px);
     }
     .diff-btn .obj-count {
       display:block;
       font-size:.58rem;
       letter-spacing:.15em;
       margin-top:.4em;
-      opacity:.5;
+      opacity:.7;
     }
     .diff-btn.easy   { --accent:#44aa66; }
     .diff-btn.medium { --accent:#cc9922; }
     .diff-btn.hard   { --accent:#cc2222; }
-    .diff-btn:hover  { border-color:#555; color:#999; }
+    .diff-btn:hover  { border-color:#777; color:#fff; background:rgba(0,0,0,0.8); }
     .diff-btn.active {
       border-color:var(--accent);
       color:var(--accent);
+      background:rgba(0,0,0,0.9);
       box-shadow:0 0 14px color-mix(in srgb, var(--accent) 35%, transparent);
     }
 
     .start-btn {
-      background:none;
+      background:rgba(0,0,0,0.8);
       border:1px solid #c00;
       color:#c00;
       font-family:'Courier New',monospace;
@@ -112,6 +119,7 @@
       cursor:pointer;
       text-transform:uppercase;
       transition:all .2s;
+      backdrop-filter:blur(2px);
     }
     .start-btn:hover  { background:#c00; color:#000; box-shadow:0 0 20px #f00; }
     .start-btn:disabled { opacity:.28; cursor:default; pointer-events:none; }
@@ -119,7 +127,8 @@
     .warning {
       margin-top:1.8em;
       font-size:.63rem;
-      color:#333;
+      color:#aaa;
+      text-shadow:1px 1px 2px rgba(0,0,0,0.8);
       letter-spacing:.2em;
     }
 
@@ -128,9 +137,9 @@
       position:fixed;
       top:1.5em;
       right:1.5em;
-      background:none;
-      border:1px solid #333;
-      color:#666;
+      background:rgba(0,0,0,0.8);
+      border:1px solid #555;
+      color:#ccc;
       font-family:'Courier New',monospace;
       font-size:.7rem;
       letter-spacing:.2em;
@@ -139,9 +148,10 @@
       text-transform:uppercase;
       transition:all .18s;
       z-index:500;
+      backdrop-filter:blur(2px);
     }
-    .mute-btn:hover { border-color:#555; color:#999; }
-    .mute-btn.muted { border-color:#c00; color:#c00; }
+    .mute-btn:hover { border-color:#777; color:#fff; background:rgba(0,0,0,0.9); }
+    .mute-btn.muted { border-color:#c00; color:#c00; background:rgba(0,0,0,0.9); }
     .mute-btn.muted:hover { background:#c00; color:#000; box-shadow:0 0 12px #f00; }
 
     /* ── REFERENCE ROOM BANNER ── */
