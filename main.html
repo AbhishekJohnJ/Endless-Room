@@ -563,27 +563,37 @@ function playCorrect() { tone(880, 'sine', 0.15, 0.18); tone(1100, 'sine', 0.15,
 function playClick()   { tone(300, 'sine', 0.07, 0.1); }
 
 function playDoorCreak() {
-  // Slow sweep creak — FM-ish, low frequency warble
+  // Simple wooden door creak sound
   try {
     const ctx = getACtx();
+    const duration = 1.2;
+    
+    // Low frequency creak
     const o = ctx.createOscillator(), g = ctx.createGain();
-    const mod = ctx.createOscillator(), modG = ctx.createGain();
-    mod.frequency.value = 3; modG.gain.value = 18;
-    mod.connect(modG); modG.connect(o.frequency);
     o.type = 'sawtooth';
-    o.frequency.setValueAtTime(90, ctx.currentTime);
-    o.frequency.linearRampToValueAtTime(55, ctx.currentTime + 0.85);
+    o.frequency.setValueAtTime(65, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + duration);
+    
     g.gain.setValueAtTime(0, ctx.currentTime);
-    g.gain.linearRampToValueAtTime(0.22, ctx.currentTime + 0.05);
-    g.gain.linearRampToValueAtTime(0.14, ctx.currentTime + 0.7);
-    g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.9);
+    g.gain.linearRampToValueAtTime(0.2, ctx.currentTime + 0.06);
+    g.gain.linearRampToValueAtTime(0.15, ctx.currentTime + duration - 0.2);
+    g.gain.linearRampToValueAtTime(0, ctx.currentTime + duration);
+    
+    // Light distortion for texture
     const dist = ctx.createWaveShaper();
     const curve = new Float32Array(256);
-    for (let i = 0; i < 256; i++) { const x = (i*2/256)-1; curve[i]=Math.tanh(x*4); }
+    for (let i = 0; i < 256; i++) { 
+      const x = (i * 2 / 256) - 1; 
+      curve[i] = Math.tanh(x * 3); 
+    }
     dist.curve = curve;
-    o.connect(dist); dist.connect(g); g.connect(ctx.destination);
-    mod.start(ctx.currentTime); mod.stop(ctx.currentTime + 0.9);
-    o.start(ctx.currentTime);   o.stop(ctx.currentTime + 0.9);
+    
+    o.connect(dist);
+    dist.connect(g);
+    g.connect(ctx.destination);
+    
+    o.start(ctx.currentTime);
+    o.stop(ctx.currentTime + duration);
   } catch(e) {}
 }
 
@@ -944,10 +954,49 @@ function buildRoom() {
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D), mat(0x181818));
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
 
-  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(ROOM_W, ROOM_D), mat(0x0f0f0f));
+  // Load horror wall texture
+  const textureLoader = new THREE.TextureLoader();
+  const wallTexture = textureLoader.load(
+    'horror%20wall.jpg',
+    // onLoad callback
+    function(texture) {
+      console.log('Horror wall texture loaded successfully');
+    },
+    // onProgress callback
+    undefined,
+    // onError callback
+    function(err) {
+      console.error('Error loading horror wall texture:', err);
+    }
+  );
+  wallTexture.wrapS = THREE.RepeatWrapping;
+  wallTexture.wrapT = THREE.RepeatWrapping;
+  wallTexture.repeat.set(1, 1); // One image per wall (stretched)
+  
+  // Load same texture for ceiling
+  const ceilTexture = textureLoader.load('horror%20wall.jpg');
+  ceilTexture.wrapS = THREE.RepeatWrapping;
+  ceilTexture.wrapT = THREE.RepeatWrapping;
+  ceilTexture.repeat.set(1, 1);
+  
+  const ceil = new THREE.Mesh(
+    new THREE.PlaneGeometry(ROOM_W, ROOM_D), 
+    new THREE.MeshStandardMaterial({ 
+      map: ceilTexture,
+      color: 0x888888,
+      roughness: 0.92,
+      metalness: 0
+    })
+  );
   ceil.rotation.x = Math.PI / 2; ceil.position.y = ROOM_H; ceil.receiveShadow = true; scene.add(ceil);
-
-  const wallMat = mat(0x1b1920);
+  
+  const wallMat = new THREE.MeshStandardMaterial({ 
+    map: wallTexture,
+    color: 0x888888, // Fallback gray color if texture doesn't load
+    roughness: 0.92,
+    metalness: 0
+  });
+  
   [
     [ROOM_W, ROOM_H, 0.14,  0,         ROOM_H/2, -ROOM_D/2,  0],
     [ROOM_W, ROOM_H, 0.14,  0,         ROOM_H/2,  ROOM_D/2,  Math.PI],
