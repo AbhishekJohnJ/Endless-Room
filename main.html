@@ -123,6 +123,27 @@
       letter-spacing:.2em;
     }
 
+    /* ── MUTE BUTTON ── */
+    .mute-btn {
+      position:fixed;
+      top:1.5em;
+      right:1.5em;
+      background:none;
+      border:1px solid #333;
+      color:#666;
+      font-family:'Courier New',monospace;
+      font-size:.7rem;
+      letter-spacing:.2em;
+      padding:.5em 1em;
+      cursor:pointer;
+      text-transform:uppercase;
+      transition:all .18s;
+      z-index:500;
+    }
+    .mute-btn:hover { border-color:#555; color:#999; }
+    .mute-btn.muted { border-color:#c00; color:#c00; }
+    .mute-btn.muted:hover { background:#c00; color:#000; box-shadow:0 0 12px #f00; }
+
     /* ── REFERENCE ROOM BANNER ── */
     #ref-banner {
       position:fixed;
@@ -402,6 +423,7 @@
 
 <!-- START SCREEN -->
 <div id="start-screen" class="screen">
+  <button class="mute-btn" id="mute-btn-menu">🔊 Sound</button>
   <div class="title">Endless Rooms</div>
   <div class="subtitle">something is wrong &nbsp;·&nbsp; find what changed</div>
   <div class="instructions-box">
@@ -464,6 +486,7 @@
 
 <!-- ESC PAUSE / QUIT CONFIRMATION -->
 <div id="pause-overlay">
+  <button class="mute-btn" id="mute-btn-pause">🔊 Sound</button>
   <div id="pause-box">
     <div class="pause-title">Paused</div>
     <div class="pause-sub">— something waits in the dark —</div>
@@ -788,6 +811,98 @@ let isRefRoom   = true;
 // ── Audio ─────────────────────────────────────────────────────
 let menuMusic = null;
 let gameMusic = null;
+let isMuted = false;
+
+function initAudio() {
+  menuMusic = document.getElementById('menu-music');
+  gameMusic = document.getElementById('game-music');
+
+  console.log('Menu music element:', menuMusic);
+  console.log('Game music element:', gameMusic);
+
+  // Test if files can load
+  if (menuMusic) {
+    menuMusic.addEventListener('loadeddata', () => {
+      console.log('✓ Menu music file loaded successfully');
+    });
+    menuMusic.addEventListener('error', (e) => {
+      console.error('✗ Menu music load error:', e);
+    });
+  }
+
+  if (gameMusic) {
+    gameMusic.addEventListener('loadeddata', () => {
+      console.log('✓ Game music file loaded successfully');
+    });
+    gameMusic.addEventListener('error', (e) => {
+      console.error('✗ Game music load error:', e);
+    });
+  }
+}
+
+function toggleMute() {
+  isMuted = !isMuted;
+  
+  if (menuMusic) menuMusic.muted = isMuted;
+  if (gameMusic) gameMusic.muted = isMuted;
+  
+  // Update button text and style
+  const menuBtn = document.getElementById('mute-btn-menu');
+  const pauseBtn = document.getElementById('mute-btn-pause');
+  
+  const text = isMuted ? '🔇 Muted' : '🔊 Sound';
+  const className = isMuted ? 'mute-btn muted' : 'mute-btn';
+  
+  if (menuBtn) {
+    menuBtn.textContent = text;
+    menuBtn.className = className;
+  }
+  if (pauseBtn) {
+    pauseBtn.textContent = text;
+    pauseBtn.className = className;
+  }
+}
+
+function playMenuMusic() {
+  if (!menuMusic || isMuted) {
+    console.log('Menu music muted or not available');
+    return;
+  }
+  if (gameMusic) {
+    gameMusic.pause();
+    gameMusic.currentTime = 0;
+  }
+  menuMusic.volume = 0.5;
+  console.log('Attempting to play menu music...');
+  menuMusic.play().then(() => {
+    console.log('✓ Menu music playing');
+  }).catch(e => {
+    console.error('Menu music play error:', e);
+  });
+}
+
+function playGameMusic() {
+  if (!gameMusic || isMuted) {
+    console.log('Game music muted or not available');
+    return;
+  }
+  if (menuMusic) {
+    menuMusic.pause();
+    menuMusic.currentTime = 0;
+  }
+  gameMusic.volume = 0.5;
+  console.log('Attempting to play game music...');
+  gameMusic.play().then(() => {
+    console.log('✓ Game music playing');
+  }).catch(e => {
+    console.error('Game music play error:', e);
+  });
+}
+
+function stopAllMusic() {
+  if (menuMusic) menuMusic.pause();
+  if (gameMusic) gameMusic.pause();
+}
 
 function initAudio() {
   menuMusic = document.getElementById('menu-music');
@@ -961,6 +1076,9 @@ function buildRoom() {
   roomObjects = []; extraObj = null; anomalyDesc = '';
   if (flickerIntv) { clearInterval(flickerIntv); flickerIntv = null; }
 
+  // Reset lighting and fog values (in case they were modified during ghost sequence)
+  scene.fog.density = 0.055;
+
   const mat = (c, r = 0.92, m = 0) =>
     new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m });
 
@@ -1038,17 +1156,17 @@ function buildRoom() {
     s.position.set(x, 0.09, 0); scene.add(s);
   });
 
-  ambientLight = new THREE.AmbientLight(0x090812, 2.5); scene.add(ambientLight); // Increased from 1.3 to 2.5
-  pointLight   = new THREE.PointLight(0xffe0b0, 3.5, 20); // Increased from 2.0 to 3.5
+  ambientLight = new THREE.AmbientLight(0x090812, 2.5); scene.add(ambientLight); // Reset to normal intensity
+  pointLight   = new THREE.PointLight(0xffe0b0, 3.5, 20); // Reset to normal intensity
   pointLight.position.set(0, ROOM_H - 0.35, 0);
   pointLight.castShadow = true;
   pointLight.shadow.mapSize.set(256, 256); // Reduced from 512 for better performance
   pointLight.shadow.camera.near = 0.5;
   pointLight.shadow.camera.far = 15;
   scene.add(pointLight);
-  const fill = new THREE.PointLight(0x35000a, 1.2, 12); // Increased from 0.7 to 1.2
+  const fill = new THREE.PointLight(0x35000a, 1.2, 12); // Reset to normal intensity
   fill.position.set(0, 1.4, ROOM_D/2 - 1.2); scene.add(fill);
-  const backFill = new THREE.PointLight(0x051520, 1.0, 8); // Increased from 0.5 to 1.0
+  const backFill = new THREE.PointLight(0x051520, 1.0, 8); // Reset to normal intensity
   backFill.position.set(-ROOM_W/2 + 1, 1.5, -ROOM_D/2 + 1); scene.add(backFill);
 
   const pipeMat = mat(0x1e1e1e, 0.7, 0.6);
@@ -2140,6 +2258,17 @@ startBtn.addEventListener('click', () => {
 });
 restartBtn.addEventListener('click', () => { gameoverScreen.style.display = 'none'; startGame(); });
 mainMenuBtn.addEventListener('click', () => { playClick(); goToMainMenu(); });
+
+// ── Mute button event listeners ──────────────────────────────
+document.getElementById('mute-btn-menu').addEventListener('click', () => {
+  playClick();
+  toggleMute();
+});
+
+document.getElementById('mute-btn-pause').addEventListener('click', () => {
+  playClick();
+  toggleMute();
+});
 </script>
 </body>
 </html>
