@@ -1949,11 +1949,11 @@ function triggerVictory() {
   // Different messages based on difficulty
   let message = '';
   if (difficulty === 'easy') {
-    message = 'Your memory is good! You remembered the details well.';
+    message = 'Your memory is good! You remembered the details well.\n\nReady for more? Try Medium mode now.';
   } else if (difficulty === 'medium') {
-    message = 'Impressive memory! You have a sharp eye for detail and excellent recall.';
+    message = 'Impressive memory! You have a sharp eye for detail and excellent recall.\n\nThink you can handle more? Try Hard mode now.';
   } else if (difficulty === 'hard') {
-    message = 'Extraordinary memory! Your attention to detail is exceptional. You are a master of observation!';
+    message = 'Extraordinary memory! Your attention to detail is exceptional. You are a master of observation!\n\nYou have finished this game. Congratulations!';
   }
   
   victoryMsg.textContent = message;
