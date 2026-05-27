@@ -615,6 +615,13 @@
 <div id="flash"></div>
 <div id="correct-flash"></div>
 
+<!-- VICTORY ENDING SEQUENCE OVERLAY -->
+<div id="ending-overlay" style="position:fixed; inset:0; z-index:350; display:none; background:#000;">
+  <img id="ending-image" src="sand_world.png" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0; transform:scale(1);" />
+  <img id="ghost-bg-image" src="horror_house.png" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0;" />
+  <canvas id="ending-ghost-canvas" style="position:absolute; inset:0; width:100%; height:100%; opacity:0;"></canvas>
+</div>
+
 <!-- GHOST JUMPSCARE OVERLAY -->
 <div id="ghost-overlay">
   <div class="ghost-vignette"></div>
@@ -1153,7 +1160,7 @@ let anomalyDesc = '';
 const DIFF_COUNTS = { easy: 3, medium: 6, hard: 10 };
 const VICTORY_ROOMS = { easy: 10, medium: 15, hard: 20 };
 // TESTING: Set to 1 to make room 2 the victory room for all modes
-const TESTING_MODE = true;
+const TESTING_MODE = false;
 const TEST_VICTORY_ROOMS = { easy: 1, medium: 1, hard: 1 };
 
 // ── DOM refs ──────────────────────────────────────────────────
@@ -1756,10 +1763,10 @@ function handleCorrect(which) {
   const targetRooms = TESTING_MODE ? TEST_VICTORY_ROOMS[difficulty] : VICTORY_ROOMS[difficulty];
   
   if (roomsCompleted >= targetRooms) {
-    // Victory!
+    // Victory! Play ending sequence
     startDoorOpenAnim(which, () => {
       doFlash(correctFlash, '#00ff88', 0.3, 280, () => {
-        triggerVictory();
+        playVictoryEndingSequence();
       });
     });
   } else {
@@ -1932,6 +1939,263 @@ function showGhostScreenOverlay(onDone) {
       if (onDone) onDone();
     }, 350);
   }, 700); // Show for 0.7s
+}
+
+// ═════════════════════════════════════════════════════════════
+// VICTORY ENDING SEQUENCE
+// ═════════════════════════════════════════════════════════════
+let endingGhostRenderer = null;
+let endingGhostScene = null;
+let endingGhostCamera = null;
+let endingGhostModel = null;
+let endingAnimFrame = null;
+
+function playVictoryEndingSequence() {
+  gameActive = false;
+  ghostActive = true; // Prevent player movement
+  document.exitPointerLock();
+  
+  // Hide HUD
+  hud.style.display = 'none';
+  crosshairEl.style.display = 'none';
+  refBanner.style.display = 'none';
+  
+  const endingOverlay = document.getElementById('ending-overlay');
+  const endingImage = document.getElementById('ending-image');
+  const ghostBgImage = document.getElementById('ghost-bg-image');
+  const endingGhostCanvas = document.getElementById('ending-ghost-canvas');
+  
+  endingOverlay.style.display = 'block';
+  
+  // Phase 1: Fade to black (0.5s)
+  setTimeout(() => {
+    // Phase 2: Show escape path and walk forward SLOWLY (5s)
+    endingImage.style.transition = 'opacity 0.8s';
+    endingImage.style.opacity = '1';
+    
+    // Walking animation with shake and zoom - SLOWER
+    let walkTime = 0;
+    const walkDuration = 5000; // 5 seconds (slower walk)
+    const startTime = Date.now();
+    const bobSpeed = 3.6; // Steps per second (1 step every ~278ms, 2 steps = ~556ms cycle)
+    let lastStepTime = -1000; // Start immediately
+    let stepCount = 0;
+    
+    function animateWalk() {
+      const elapsed = Date.now() - startTime;
+      if (elapsed >= walkDuration) {
+        endingImage.style.transform = 'scale(1.4) translateY(0)';
+        return;
+      }
+      
+      walkTime = elapsed / walkDuration; // 0 to 1
+      
+      // Zoom in progressively (more zoom for longer walk)
+      const scale = 1 + (walkTime * 0.4); // 1.0 to 1.4
+      
+      // Walking bob (up and down motion) - synced with footsteps
+      const bobAmount = 10; // pixels
+      const bobPhase = (elapsed / 1000) * bobSpeed * Math.PI;
+      const bob = Math.sin(bobPhase) * bobAmount * (1 - walkTime * 0.3);
+      
+      // Slight horizontal sway (half the frequency of bob)
+      const swayAmount = 6;
+      const sway = Math.sin(bobPhase * 0.5) * swayAmount * (1 - walkTime * 0.5);
+      
+      endingImage.style.transform = `scale(${scale}) translateY(${bob}px) translateX(${sway}px)`;
+      
+      // Footstep sounds - triggered at the bottom of each bob (when foot hits ground)
+      // Detect when bob crosses zero going down (foot impact)
+      const currentBob = Math.sin(bobPhase);
+      const stepInterval = 1000 / bobSpeed / 2; // Half cycle = one step
+      
+      if (elapsed - lastStepTime >= stepInterval - 20) { // Small tolerance
+        // Check if we're at the bottom of the bob cycle
+        const bobVelocity = Math.cos(bobPhase);
+        if (currentBob < 0.1 && currentBob > -0.1 && bobVelocity < 0) {
+          lastStepTime = elapsed;
+          stepCount++;
+          
+          // Alternating left/right foot with different pitches
+          const isLeftFoot = stepCount % 2 === 0;
+          const basePitch = isLeftFoot ? 85 : 95;
+          const variation = Math.random() * 10;
+          
+          // Main footstep sound - louder and clearer
+          tone(basePitch + variation, 'sine', 0.15, 0.25);
+          
+          // Low thud for impact
+          tone((basePitch + variation) * 0.4, 'sine', 0.12, 0.2, 0.01);
+          
+          // High frequency for texture (gravel/sand sound)
+          tone((basePitch + variation) * 3, 'sine', 0.08, 0.12, 0.02);
+          
+          // Subtle crunch/scrape sound
+          try {
+            const ctx = getACtx();
+            const bufLen = ctx.sampleRate * 0.1;
+            const nbuf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+            const nd = nbuf.getChannelData(0);
+            for (let i = 0; i < bufLen; i++) {
+              nd[i] = (Math.random() * 2 - 1) * 0.15 * (1 - i / bufLen);
+            }
+            const ns = ctx.createBufferSource();
+            ns.buffer = nbuf;
+            const nf = ctx.createBiquadFilter();
+            nf.type = 'highpass';
+            nf.frequency.value = 800;
+            const ng = ctx.createGain();
+            ng.gain.value = 0.18;
+            ns.connect(nf);
+            nf.connect(ng);
+            ng.connect(ctx.destination);
+            ns.start(ctx.currentTime);
+          } catch(e) {}
+        }
+      }
+      
+      requestAnimationFrame(animateWalk);
+    }
+    animateWalk();
+    
+    // Reduced ambient sound so footsteps are clearer
+    tone(90, 'sine', 4.8, 0.03);
+    tone(130, 'sine', 4.8, 0.02, 0.3);
+    
+  }, 500);
+  
+  // Phase 3: After 5s of walking, QUICK TURN AROUND 180° (0.4s) and show ghost in front of house
+  setTimeout(() => {
+    // Quick turn around animation - rotate the escape path out
+    endingImage.style.transition = 'transform 0.4s ease-out, opacity 0.4s';
+    endingImage.style.transform = 'scale(1.4) rotateY(180deg)';
+    endingImage.style.opacity = '0';
+    
+    // Simultaneously show house background and ghost
+    ghostBgImage.style.transition = 'opacity 0.4s';
+    ghostBgImage.style.opacity = '1';
+    
+    // Turn around sound effect
+    tone(150, 'sine', 0.3, 0.08);
+    tone(100, 'sine', 0.3, 0.06, 0.1);
+    
+    // Setup ghost canvas immediately
+    const canvas = endingGhostCanvas;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    // Create 3D scene for ghost
+    endingGhostRenderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    endingGhostRenderer.setSize(canvas.width, canvas.height);
+    endingGhostRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    
+    endingGhostScene = new THREE.Scene();
+    endingGhostCamera = new THREE.PerspectiveCamera(60, canvas.width / canvas.height, 0.1, 100);
+    endingGhostCamera.position.set(0, 1.2, 5);
+    endingGhostCamera.lookAt(0, 1, 0);
+    
+    // Natural lighting for ghost (not red)
+    const mainLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    mainLight.position.set(2, 3, 2);
+    endingGhostScene.add(mainLight);
+    
+    const fillLight = new THREE.PointLight(0x8888aa, 0.4, 10);
+    fillLight.position.set(-2, 1.5, 2);
+    endingGhostScene.add(fillLight);
+    
+    const ambLight = new THREE.AmbientLight(0x404050, 0.8);
+    endingGhostScene.add(ambLight);
+    
+    // Subtle rim light for depth
+    const rimLight = new THREE.DirectionalLight(0x6666aa, 0.3);
+    rimLight.position.set(-1, 1, -2);
+    endingGhostScene.add(rimLight);
+    
+    // Load and show ghost standing in front of house
+    loadGhostModel((model) => {
+      endingGhostModel = model;
+      model.position.set(0, 0, 0);
+      model.rotation.y = 0; // Face camera
+      model.scale.set(1.2, 1.2, 1.2);
+      
+      // Remove any red emissive materials
+      model.traverse((child) => {
+        if (child.isMesh && child.material) {
+          if (child.material.emissive) {
+            child.material.emissive.setHex(0x000000); // No emissive glow
+          }
+          child.material.emissiveIntensity = 0;
+          child.material.needsUpdate = true;
+        }
+      });
+      
+      endingGhostScene.add(model);
+      
+      // Fade in ghost canvas with turn around
+      endingGhostCanvas.style.transition = 'opacity 0.4s';
+      endingGhostCanvas.style.opacity = '1';
+      
+      // Subtle ghost animation (breathing/floating/watching)
+      let ghostTime = 0;
+      function animateEndingGhost() {
+        if (!endingGhostCanvas || endingGhostCanvas.style.opacity === '0') {
+          if (endingAnimFrame) cancelAnimationFrame(endingAnimFrame);
+          return;
+        }
+        
+        ghostTime += 0.015;
+        
+        // Slow floating motion
+        model.position.y = Math.sin(ghostTime * 1.5) * 0.1;
+        
+        // Slight head tilt (watching you)
+        model.rotation.z = Math.sin(ghostTime * 1.2) * 0.04;
+        model.rotation.x = Math.sin(ghostTime * 0.8) * 0.02;
+        
+        // Very subtle sway
+        model.position.x = Math.sin(ghostTime * 0.9) * 0.05;
+        
+        endingGhostRenderer.render(endingGhostScene, endingGhostCamera);
+        endingAnimFrame = requestAnimationFrame(animateEndingGhost);
+      }
+      animateEndingGhost();
+      
+      // Eerie ghost presence sound
+      setTimeout(() => {
+        tone(180, 'sine', 2.5, 0.1, 0.1);
+        tone(120, 'sine', 2.5, 0.08, 0.3);
+        tone(90, 'sine', 2.5, 0.06, 0.5);
+      }, 200);
+    });
+    
+  }, 5500);
+  
+  // Phase 4: After 3s of showing ghost, fade out and show victory screen (total ~9s)
+  setTimeout(() => {
+    // Fade out everything
+    endingGhostCanvas.style.transition = 'opacity 1s';
+    endingGhostCanvas.style.opacity = '0';
+    ghostBgImage.style.transition = 'opacity 1s';
+    ghostBgImage.style.opacity = '0';
+    
+    setTimeout(() => {
+      // Cleanup
+      if (endingAnimFrame) cancelAnimationFrame(endingAnimFrame);
+      if (endingGhostModel) endingGhostScene.remove(endingGhostModel);
+      if (endingGhostRenderer) {
+        endingGhostRenderer.dispose();
+        endingGhostRenderer = null;
+      }
+      endingGhostScene = null;
+      endingGhostCamera = null;
+      endingGhostModel = null;
+      
+      endingOverlay.style.display = 'none';
+      ghostActive = false;
+      triggerVictory();
+    }, 1000);
+    
+  }, 8900);
 }
 
 // ═════════════════════════════════════════════════════════════
