@@ -551,10 +551,10 @@
 
 <!-- Background Music -->
 <audio id="menu-music" loop preload="auto">
-  <source src="Empty%20Hallway.mp3" type="audio/mpeg">
+  <source src="empty_hallway.mp3" type="audio/mpeg">
 </audio>
 <audio id="game-music" loop preload="auto">
-  <source src="Empty%20Hall%20Loop.mp3" type="audio/mpeg">
+  <source src="empty_hall_loop.mp3" type="audio/mpeg">
 </audio>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -1272,7 +1272,7 @@ function buildRoom() {
   // Load horror wall texture
   const textureLoader = new THREE.TextureLoader();
   const wallTexture = textureLoader.load(
-    'horror%20wall.jpg',
+    'horror_wall.jpg',
     // onLoad callback
     function(texture) {
       console.log('Horror wall texture loaded successfully');
@@ -1293,7 +1293,7 @@ function buildRoom() {
   wallTexture.repeat.set(1, 1); // One image per wall (stretched)
   
   // Load same texture for ceiling
-  const ceilTexture = textureLoader.load('horror%20wall.jpg', function(texture) {
+  const ceilTexture = textureLoader.load('horror_wall.jpg', function(texture) {
     texture.minFilter = THREE.LinearFilter;
     texture.magFilter = THREE.LinearFilter;
     texture.generateMipmaps = false;
