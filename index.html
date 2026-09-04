@@ -699,23 +699,11 @@
      • "Main Menu" button on game over screen
    ═══════════════════════════════════════════════════════════════ */
 
-// ── ASSET CDN CONFIGURATION ───────────────────────────────────
-// Using jsDelivr to serve assets from GitHub CDN
-// GitHub Username: AbhishekJohnJ
-// GitHub Repo: Endless-Room
-// Branch: main
-
-const CDN_CONFIG = {
-  // Using jsDelivr CDN - serves files from GitHub with global CDN
-  baseUrl: 'https://cdn.jsdelivr.net/gh/AbhishekJohnJ/Endless-Room@main/',
-  useLocal: false // Set to true to use local files (for testing)
-};
+// ── ASSET CONFIGURATION ───────────────────────────────────────
+// Using local files served from Vercel root
 
 function getAssetUrl(filename) {
-  if (CDN_CONFIG.useLocal) {
-    return filename; // Use local files
-  }
-  return `${CDN_CONFIG.baseUrl}${filename}`;
+  return `/${filename}`; // Serve from root
 }
 
 // ── Web Audio ─────────────────────────────────────────────────

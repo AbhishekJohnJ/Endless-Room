@@ -2,21 +2,34 @@
   "version": 2,
   "buildCommand": "",
   "outputDirectory": ".",
-  "publicBase": "./",
+  "publicBase": "/",
   "headers": [
     {
-      "source": "/(.*)\\.(glb|mp3|png|jpg|jpeg)$",
+      "source": "/(.*)\\.(glb|mp3|png|jpg|jpeg|wav)$",
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, max-age=31536000"
+          "value": "public, max-age=31536000, immutable"
+        },
+        {
+          "key": "Content-Type",
+          "value": "application/octet-stream"
+        }
+      ]
+    },
+    {
+      "source": "/index.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
         }
       ]
     }
   ],
   "routes": [
     {
-      "src": "/(?!.*\\.(glb|mp3|png|jpg|jpeg|gif|css|js|json|ico|svg|woff|woff2|ttf|eot)$)(.*)",
+      "src": "/(?!.*\\.(glb|mp3|png|jpg|jpeg|gif|css|js|json|ico|svg|woff|woff2|ttf|eot|wav)$)(.*)",
       "dest": "/index.html"
     }
   ]
