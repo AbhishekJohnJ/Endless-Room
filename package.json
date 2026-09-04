@@ -1,0 +1,12 @@
+{
+  "name": "endless-rooms",
+  "version": "1.0.0",
+  "description": "A psychological horror game with 3D rooms and anomaly detection",
+  "type": "module",
+  "scripts": {
+    "build": "echo 'Static site - no build needed'"
+  },
+  "keywords": ["horror", "game", "three.js"],
+  "author": "",
+  "license": "MIT"
+}

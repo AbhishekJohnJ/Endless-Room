@@ -1,19 +1,11 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "index.html",
-      "use": "@vercel/static"
-    }
-  ],
+  "buildCommand": "",
+  "outputDirectory": ".",
   "routes": [
     {
-      "src": "/(?!.*\\.(js|css|gif|jpg|jpeg|png|svg|ico|json|glb|mp3)$)(.*)",
+      "src": "/(?!.*\\.(glb|mp3|png|jpg|jpeg|gif|css|js|json|ico|svg)$)(.*)",
       "dest": "/index.html"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
     }
   ]
 }
