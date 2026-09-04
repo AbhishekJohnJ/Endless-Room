@@ -700,10 +700,15 @@
    ═══════════════════════════════════════════════════════════════ */
 
 // ── ASSET CONFIGURATION ───────────────────────────────────────
-// Using local files served from Vercel root
+// Using Raw GitHub URLs - no size limits, works globally
+// GitHub: AbhishekJohnJ/Endless-Room
+
+const ASSET_CONFIG = {
+  baseUrl: 'https://raw.githubusercontent.com/AbhishekJohnJ/Endless-Room/main/'
+};
 
 function getAssetUrl(filename) {
-  return `/${filename}`; // Serve from root
+  return `${ASSET_CONFIG.baseUrl}${filename}`;
 }
 
 // ── Web Audio ─────────────────────────────────────────────────
