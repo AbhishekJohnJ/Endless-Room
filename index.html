@@ -699,6 +699,27 @@
      • "Main Menu" button on game over screen
    ═══════════════════════════════════════════════════════════════ */
 
+// ── FIREBASE STORAGE CONFIGURATION ─────────────────────────────
+// Update these with your Firebase project details
+const FIREBASE_CONFIG = {
+  projectId: 'endless-rooms-12345', // Replace with YOUR Firebase Project ID
+  storageBucket: 'endless-rooms-12345.appspot.com', // Replace with YOUR bucket
+  enabled: false // Set to true once you upload files to Firebase
+};
+
+// Asset base URL - change this to Firebase URL when ready
+// Format: https://firebasestorage.googleapis.com/v0/b/{BUCKET}/o/{FOLDER}%2F?alt=media
+const ASSET_BASE_URL = FIREBASE_CONFIG.enabled 
+  ? `https://firebasestorage.googleapis.com/v0/b/${FIREBASE_CONFIG.storageBucket}/o/game-assets%2F`
+  : './'; // Default to local files
+
+function getAssetUrl(filename) {
+  if (FIREBASE_CONFIG.enabled) {
+    return `${ASSET_BASE_URL}${filename}?alt=media`;
+  }
+  return filename;
+}
+
 // ── Web Audio ─────────────────────────────────────────────────
 let audioCtx = null;
 const getACtx = () =>
@@ -830,7 +851,7 @@ function loadGhostModel(callback) {
   console.warn('Ghost model not preloaded, loading now...');
   const loader = new THREE.GLTFLoader();
   loader.load(
-    'hantu_kyunti.glb',
+    getAssetUrl('hantu_kyunti.glb'),
     (gltf) => {
       const model = gltf.scene;
       
@@ -2585,7 +2606,7 @@ function preloadAllModels(callback) {
   allModels.forEach(modelPath => {
     console.log(`Attempting to load: ${modelPath}`);
     loader.load(
-      modelPath,
+      getAssetUrl(modelPath),
       (gltf) => {
         // Optimize model for performance
         gltf.scene.traverse((child) => {
